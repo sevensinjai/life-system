@@ -1,0 +1,1 @@
+# cat-only-svg
