@@ -43,7 +43,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
-from app.models.enums import FriendshipStatus, StatName
+from app.models.enums import FriendshipStatus, MythTradition, StatName
 
 if TYPE_CHECKING:
     from app.models.player import Player
@@ -72,6 +72,14 @@ class Constellation(Base):
     # are still English-only until the localization pass, but a name is
     # identity rather than prose, and a client may reasonably want to show
     # both at once — 「猛志常在」 The Will That Remains — rather than pick one.
+    # Which body of myth it comes out of. Stored rather than derived because
+    # a pantheon this size is read grouped, not as one list.
+    tradition: Mapped[MythTradition] = mapped_column(
+        Enum(MythTradition, native_enum=False, length=16),
+        default=MythTradition.GREEK,
+        index=True,
+    )
+
     code_name: Mapped[str] = mapped_column(String(120))
     code_name_zh_hant: Mapped[str | None] = mapped_column(String(120), nullable=True)
     real_name: Mapped[str | None] = mapped_column(String(120), nullable=True)

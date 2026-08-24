@@ -23,6 +23,7 @@ from app.errors import NotFoundError
 from app.models import (
     Constellation,
     ConstellationFavor,
+    MythTradition,
     Player,
     QuestDifficulty,
     SideQuest,
@@ -112,6 +113,7 @@ def _written_fields(entry: ConstellationEntry) -> dict:
     half-applied: the seeder writes and compares the same set.
     """
     return {
+        "tradition": entry.tradition,
         "code_name": entry.code_name,
         "code_name_zh_hant": entry.code_name_zh_hant,
         "real_name": entry.real_name,
@@ -134,12 +136,17 @@ def get_by_code(db: Session, code: str) -> Constellation:
 
 
 def list_constellations(
-    db: Session, *, include_retired: bool = False
+    db: Session,
+    *,
+    include_retired: bool = False,
+    tradition: MythTradition | None = None,
 ) -> list[Constellation]:
-    """The pantheon, in a stable order."""
+    """The pantheon, in a stable order, optionally narrowed to one tradition."""
     stmt = select(Constellation)
     if not include_retired:
         stmt = stmt.where(Constellation.is_active.is_(True))
+    if tradition is not None:
+        stmt = stmt.where(Constellation.tradition == tradition)
     return list(db.scalars(stmt.order_by(Constellation.id)))
 
 

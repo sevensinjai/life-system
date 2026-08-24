@@ -6,6 +6,7 @@ import pytest
 
 from app.content.broadcasts import BROADCASTS
 from app.content.broadcasts import by_code as broadcasts_by_code
+from app.content.broadcasts import for_constellation as broadcasts_for
 from app.content.pantheon import PANTHEON
 from app.content.pantheon import by_code as pantheon_by_code
 from app.models import (
@@ -19,6 +20,7 @@ from app.models import (
     SystemEvent,
     User,
 )
+from app.models.enums import MythTradition, StatName
 from app.security import hash_password
 from app.services import broadcasting, constellations, side_quests, story
 from tests.conftest import befriend
@@ -161,10 +163,53 @@ def test_a_constellation_that_returns_is_reinstated(db) -> None:
 
 
 def test_every_written_trial_belongs_to_a_real_constellation() -> None:
-    """The two catalogs are hand-written; nothing checks them but this."""
+    """The catalogs are hand-written; nothing checks them but this."""
     known = set(pantheon_by_code())
 
     assert {entry.constellation for entry in BROADCASTS} <= known
+
+
+def test_every_constellation_has_something_to_send() -> None:
+    """One with no trials could be befriended and then never speak again."""
+    for entry in PANTHEON:
+        assert broadcasts_for(entry.code), entry.code
+
+
+def test_the_pantheon_spans_every_tradition() -> None:
+    found = {entry.tradition for entry in PANTHEON}
+
+    assert found == set(MythTradition)
+
+
+def test_every_stat_has_a_constellation_that_cares_about_it() -> None:
+    """A player who wants to raise one stat must have somewhere to go for it."""
+    claimed = {entry.domain for entry in PANTHEON if entry.domain}
+
+    assert claimed == set(StatName)
+
+
+def test_some_constellations_care_about_the_habit_rather_than_a_stat() -> None:
+    assert any(entry.domain is None for entry in PANTHEON)
+
+
+def test_codes_are_unique() -> None:
+    assert len(pantheon_by_code()) == len(PANTHEON)
+
+
+def test_every_constellation_says_something_of_its_own() -> None:
+    """A silent voice would fall all the way through to the System register."""
+    for entry in PANTHEON:
+        assert entry.voice, entry.code
+        # The moments that carry the relationship: being sent something,
+        # clearing it, being turned away, and being taken in.
+        for kind in ("offer", "complete", "refuse", "befriend"):
+            assert kind in entry.voice, f"{entry.code}: {kind}"
+
+
+def test_every_constellation_is_described() -> None:
+    """The description is the only place the actual myth gets told."""
+    for entry in PANTHEON:
+        assert len(entry.description) > 120, entry.code
 
 
 def test_written_trials_have_unique_codes() -> None:
@@ -390,33 +435,47 @@ def test_a_scheduled_trial_carries_its_constellation_and_window(db, pantheon) ->
     assert scheduled.side_quest.expires_at == NOW + timedelta(hours=24)
 
 
-def test_the_rotation_does_not_repeat_before_the_catalog_is_spent(db, pantheon) -> None:
-    """Everything written gets seen before anything is seen twice."""
+def spend_the_catalog(db, *, now=NOW) -> list[str]:
+    """Send every written trial once, at one instant so none of them rests."""
     sent = []
-    for i in range(len(BROADCASTS)):
-        scheduled = broadcasting.schedule_next(db, now=NOW + timedelta(days=i))
+    for _ in range(len(BROADCASTS)):
+        scheduled = broadcasting.schedule_next(db, now=now)
         assert scheduled is not None
         sent.append(scheduled.entry.code)
+    return sent
+
+
+def test_the_rotation_does_not_repeat_before_the_catalog_is_spent(db, pantheon) -> None:
+    """Everything written gets seen before anything is seen twice."""
+    sent = spend_the_catalog(db)
 
     assert len(set(sent)) == len(BROADCASTS)
 
 
 def test_a_spent_catalog_rests_rather_than_repeating(db, pantheon) -> None:
-    for i in range(len(BROADCASTS)):
-        broadcasting.schedule_next(db, now=NOW + timedelta(days=i))
+    spend_the_catalog(db)
 
-    assert broadcasting.schedule_next(db, now=NOW + timedelta(days=len(BROADCASTS))) is None
+    assert broadcasting.schedule_next(db, now=NOW) is None
 
 
 def test_a_rested_trial_comes_round_again(db, pantheon) -> None:
-    for i in range(len(BROADCASTS)):
-        broadcasting.schedule_next(db, now=NOW + timedelta(days=i))
+    spend_the_catalog(db)
 
     later = NOW + timedelta(days=broadcasting.COOLDOWN_DAYS + 1)
     scheduled = broadcasting.schedule_next(db, now=later)
 
     assert scheduled is not None
     assert scheduled.entry.code == BROADCASTS[0].code  # the longest-waiting one
+
+
+def test_the_catalog_outlasts_the_cooldown(db, pantheon) -> None:
+    """A trial should not come round again while unsent ones are waiting.
+
+    True only while the catalog is longer than the cooldown can absorb, which
+    is a property of the written content rather than of the code — so it is
+    checked here, where growing the catalog cannot quietly break it.
+    """
+    assert len(BROADCASTS) > broadcasting.COOLDOWN_DAYS
 
 
 def test_scheduling_a_trial_whose_constellation_is_missing_is_refused(db) -> None:
@@ -449,6 +508,18 @@ def test_the_pantheon_lists_with_your_standing(auth_client, db) -> None:
     assert len(body) == len(PANTHEON)
     assert body[0]["standing"]["standing"] == "stranger"
     assert body[0]["standing"]["offers_received"] == 0
+
+
+def test_the_pantheon_can_be_read_one_tradition_at_a_time(auth_client, db) -> None:
+    """Twenty-six is too many to read as one list."""
+    constellations.seed_pantheon(db)
+    db.commit()
+
+    body = auth_client.get("/constellations?tradition=japanese").json()
+
+    assert body
+    assert {entry["tradition"] for entry in body} == {"japanese"}
+    assert len(body) < len(PANTHEON)
 
 
 def test_looking_at_the_pantheon_creates_no_history(auth_client, db) -> None:

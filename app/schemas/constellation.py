@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import FriendshipStatus, Standing, StatName
+from app.models.enums import FriendshipStatus, MythTradition, Standing, StatName
 from app.schemas.common import UtcMoment
 
 
@@ -17,6 +17,7 @@ class ConstellationBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     code: str = Field(description="Stable identifier; survives a rename.")
+    tradition: MythTradition = Field(description="Which body of myth it comes from.")
     code_name: str = Field(description="What it is called: a title.")
     code_name_zh_hant: str | None = Field(
         default=None, description="The same title in Traditional Chinese."
@@ -118,6 +119,7 @@ class ConstellationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     code: str
+    tradition: MythTradition
     code_name: str
     code_name_zh_hant: str | None = None
     real_name: str | None = None

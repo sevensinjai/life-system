@@ -218,14 +218,19 @@ fell short fail and pay their penalty.
 
 ## The constellations
 
-A side quest comes from somebody. The pantheon is six figures out of real
-mythology — two Greek, two Chinese, two Japanese — each remembered for the
-thing it now asks of you: the headless god who kept fighting, the student who
-was poor and did not mind, the sun that hid in a cave and came back out.
+A side quest comes from somebody. The pantheon is **twenty-six figures out of
+real mythology** — nine Greek, nine Chinese, eight Japanese — each remembered
+for the thing it now asks of you.
 
-They are written by hand in `app/content/pantheon.py` and seeded into the
-database, so a constellation is a row a broadcast points at rather than a name
-typed into each one.
+Some are names anyone would know: Athena, Heracles, Hermes, Amaterasu, Guan
+Yu. A good many are not, and those are half the point — the bird filling the
+sea one pebble at a time, the thumb-sized god who arrived on a wave in a bean
+pod, the Titaness who is the reason anything is remembered at all, the giant
+whose hundred eyes became the peacock's tail.
+
+They are written by hand in `app/content/pantheon/`, split by tradition, and
+seeded into the database, so a constellation is a row a broadcast points at
+rather than a name typed into each one.
 
 Nothing they issue reaches you until you have befriended them, so the pantheon
 screen is where the game actually starts.
@@ -240,25 +245,53 @@ underneath is the reminder that it was somebody.
 Both are carried in English and Traditional Chinese, so a client can show
 either or both — 「猛志常在」 The Will That Remains.
 
-| Code name | 代號 | Real name | 本名 | Myth | Domain | Cares about |
-| --------- | ---- | --------- | ---- | ---- | ------ | ----------- |
-| The Will That Remains | 「猛志常在」 | Xingtian | 刑天 | Chinese | strength | going on after you were beaten |
-| The Winged Sandal | 「飛翼之履」 | Hermes | 赫爾墨斯 | Greek | agility | ground covered, not arriving |
-| One Basket, One Gourd | 「一簞一瓢」 | Yan Hui | 顏回 | Chinese | vitality | going without, and not minding |
-| The Plum That Followed | 「飛梅之筆」 | Sugawara no Michizane | 菅原道真 | Japanese | intelligence | learning a thing well enough to say it |
-| The Hundred Eyes | 「百目」 | Argus Panoptes | 阿爾戈斯 | Greek | perception | noticing what you walk past |
-| The Door Opened Again | 「岩戶重開」 | Amaterasu | 天照大神 | Japanese | — | coming back, however badly |
+### Greek
 
-Each is set to what they are actually remembered for. Xingtian was beheaded
-for challenging the Yellow Emperor and went on swinging; Hermes is the god of
-roads and thresholds; Yan Hui lived on one basket of rice and one gourd of
-water and did not let it change his joy; Michizane was exiled and his plum
-tree is said to have flown after him, and students have petitioned him before
-examinations ever since; Argus had a hundred eyes of which only some slept at
-a time; Amaterasu shut herself in the rock cave and left the world dark until
-she came back out. They are written with the respect owed to figures people
-still honour — they ask for persistence, restraint, study and attention, and
-they are never made ridiculous.
+| Code name | 代號 | Real name | 本名 | Domain | Remembered for |
+| --------- | ---- | --------- | ---- | ------ | -------------- |
+| The Winged Sandal | 「飛翼之履」 | Hermes | 赫爾墨斯 | agility | roads, thresholds, and crossing every border there is |
+| The Hundred Eyes | 「百目」 | Argus Panoptes | 阿爾戈斯 | perception | a hundred eyes, never all asleep at once |
+| The Grey-Eyed | 「灰眼者」 | Athena | 雅典娜 | intelligence | the craft and the strategy, which she thinks are one thing |
+| The Twelve Labours | 「十二功業」 | Heracles | 赫拉克勒斯 | strength | an impossible list, finished |
+| The Stone, Again | 「復推其石」 | Sisyphus | 薛西弗斯 | strength | beginning again every morning |
+| The Staff and the Serpent | 「蛇杖」 | Asclepius | 阿斯克勒庇俄斯 | vitality | healing so well he was struck down for it |
+| The Well of Remembering | 「記憶之泉」 | Mnemosyne | 謨涅摩敘涅 | intelligence | being the mother of everything worth repeating |
+| The One Never Overtaken | 「未嘗見及者」 | Atalanta | 亞特蘭妲 | agility | losing only to gold, and only because she stopped |
+| The Unbanked Hearth | 「不熄之爐」 | Hestia | 赫斯提亞 | — | a fire never once allowed to go out |
+
+### Chinese
+
+| Code name | 代號 | Real name | 本名 | Domain | Remembered for |
+| --------- | ---- | --------- | ---- | ------ | -------------- |
+| The Will That Remains | 「猛志常在」 | Xingtian | 刑天 | strength | losing his head and going on fighting |
+| One Basket, One Gourd | 「一簞一瓢」 | Yan Hui | 顏回 | vitality | being poor and not minding |
+| Righteousness Reaching the Sky | 「義薄雲天」 | Guan Yu | 關羽 | strength | riding a thousand li alone to keep a promise |
+| Filling the Sea | 「精衛填海」 | Jingwei | 精衛 | — | carrying one twig at a time against an ocean |
+| The Sun-Chaser | 「夸父逐日」 | Kuafu | 夸父 | agility | drinking two rivers dry and still being thirsty |
+| The Maker of Characters | 「造字」 | Cangjie | 倉頡 | intelligence | writing, at which the sky rained millet and ghosts wept |
+| Who Tasted the Hundred Herbs | 「嘗百草」 | Shennong | 神農 | vitality | being poisoned seventy times a day, on purpose |
+| Thousand-Mile Eyes | 「千里眼」 | Qianliyan | 千里眼 | perception | seeing the ship long before the harbour does |
+| She Who Fled to the Moon | 「奔月」 | Chang'e | 嫦娥 | — | taking the medicine and not being able to come back |
+
+### Japanese
+
+| Code name | 代號 | Real name | 本名 | Domain | Remembered for |
+| --------- | ---- | --------- | ---- | ------ | -------------- |
+| The Door Opened Again | 「岩戶重開」 | Amaterasu | 天照大神 | — | going into the cave, and coming back out |
+| The Plum That Followed | 「飛梅之筆」 | Sugawara no Michizane | 菅原道真 | intelligence | exile, and a plum tree that came after him |
+| The Storm That Was Sent Away | 「見逐之風」 | Susanoo | 須佐之男 | strength | being thrown out of heaven and killing the serpent anyway |
+| Everything That Flows | 「妙音之流」 | Benzaiten | 辯才天 | intelligence | music, water, words — anything that moves |
+| The Small God on the Wave | 「乘波之小神」 | Sukunabikona | 少彥名神 | vitality | being thumb-high and knowing every remedy |
+| He Who Waits at the Crossroads | 「衢神」 | Sarutahiko | 猿田彥 | agility | standing where the roads divide, and pointing |
+| The Three-Legged Crow | 「三足之烏」 | Yatagarasu | 八咫烏 | perception | being sent to walk in front |
+| The Dance Outside the Cave | 「岩戶之舞」 | Ame-no-Uzume | 天鈿女命 | — | making eight hundred gods laugh at once |
+
+Each is set to what they are actually remembered for, and written with the
+respect owed to figures people still honour: they ask for persistence,
+restraint, study and attention, and none of them is played for a joke.
+
+`GET /constellations?tradition=greek` narrows the list — twenty-six is more
+than a screen.
 
 `code` in the database (`xingtian`) is an identifier, not a name: it is what
 survives a rewrite, which is how re-seeding can rename a constellation in both
@@ -272,11 +305,12 @@ the trials are still English-only until the localization pass. A name is
 identity rather than prose, and worth showing in both scripts at once; a line
 of dialogue is not.
 
-The trials themselves live in `app/content/broadcasts.py` — three per
-constellation, written to be clearable by anyone, anywhere, with nothing to
-buy. Each constellation also has one **trial of admission** in
-`app/content/challenges.py`: the smallest true test of what that figure is
-remembered for, set for whoever asks to be befriended.
+The trials themselves live in `app/content/broadcasts/` — **fifty-eight** of
+them, two or three per constellation, written to be clearable by anyone,
+anywhere, with nothing to buy. Each constellation also has one **trial of
+admission** in `app/content/challenges/`: the smallest true test of what that
+figure is remembered for, set for whoever asks to be befriended. Eighty-four
+written quests in all.
 
 ### Befriending a constellation
 
@@ -386,11 +420,18 @@ still has structured data to render a card from.
 ### Writing more of it
 
 Everything a player reads that is not built from their own data lives in
-`app/content/`, as data rather than as strings in the services. A rewrite
-shows up as a diff of what a constellation *says*, not of how the app works,
-and re-running `scripts/seed_pantheon.py` updates the rows in place — matched
-on `code`, so every player's history with that constellation survives the
-edit.
+`app/content/`, as data rather than as strings in the services, split by
+tradition. A rewrite shows up as a diff of what a constellation *says*, not of
+how the app works, and re-running `scripts/seed_pantheon.py` updates the rows
+in place — matched on `code`, so every player's history with that
+constellation survives the edit.
+
+A twenty-seventh constellation is three additions and no code: an entry in
+`pantheon/<tradition>.py`, an audition in `challenges/<tradition>.py`, and at
+least one trial in `broadcasts/<tradition>.py`. The tests fail if any of the
+three is missing, if a stat is left with nobody who cares about it, or if a
+voice has nothing to say at the four moments that carry a relationship —
+being sent something, clearing it, being turned away, being taken in.
 
 Lines resolve most specific first: the trial's own line for your standing,
 then its default, then the constellation's, then the plain System register. A
@@ -609,7 +650,7 @@ app/
   security.py          # Argon2 hashing, JWT encode/decode
   deps.py              # settings / db / current-player dependencies
   errors.py            # AppError hierarchy + JSON error envelope
-  content/             # written content: the pantheon, its trials, its auditions
+  content/             # written content, by tradition: pantheon, trials, auditions
   models/              # User, Player, Quest, Quote, SideQuest, Constellation, Penalty, SystemEvent
   schemas/             # Pydantic request/response models
   services/
@@ -756,9 +797,8 @@ per-player deadlines, and a shared record of who else cleared a broadcast are
 all further out. So is a second language, which the content layout is shaped
 for but nothing implements.
 
-The pantheon is six figures; the mythologies they come from hold hundreds.
-Adding a seventh is a catalog entry, a trial of admission and three trials —
-no schema, no code.
+The pantheon is twenty-six; the mythologies they come from hold hundreds, and
+there are other mythologies. Adding one is three catalog entries and no code.
 
 On friendship: the arbiter rolls dice. Replacing it with one that reads the
 request is the next obvious move, and everything it would need is already

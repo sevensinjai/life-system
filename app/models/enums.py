@@ -78,6 +78,18 @@ class SideQuestOfferStatus(StrEnum):
     WITHDRAWN = "withdrawn"  # the broadcast itself was cancelled
 
 
+class MythTradition(StrEnum):
+    """Which body of myth a constellation comes out of.
+
+    Stored so a client can group a pantheon that is too large to read as one
+    list, and so a player looking for the sky they grew up under can find it.
+    """
+
+    GREEK = "greek"
+    CHINESE = "chinese"
+    JAPANESE = "japanese"
+
+
 class FriendshipStatus(StrEnum):
     """Where one request to befriend a constellation ended up.
 

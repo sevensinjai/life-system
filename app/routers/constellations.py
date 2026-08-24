@@ -1,10 +1,10 @@
 """The pantheon: who is watching, and what they make of you."""
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 from sqlalchemy.orm import Session
 
 from app.deps import CurrentPlayer, DbDep, SettingsDep
-from app.models import Constellation, FriendshipStatus, Player
+from app.models import Constellation, FriendshipStatus, MythTradition, Player
 from app.schemas.constellation import (
     ConstellationResponse,
     FriendshipBlock,
@@ -49,6 +49,7 @@ def _with_standing(
 
     return ConstellationResponse(
         code=constellation.code,
+        tradition=constellation.tradition,
         code_name=constellation.code_name,
         code_name_zh_hant=constellation.code_name_zh_hant,
         real_name=constellation.real_name,
@@ -77,7 +78,13 @@ def _with_standing(
     response_model=list[ConstellationResponse],
     summary="Who is watching",
 )
-def index(player: CurrentPlayer, db: DbDep) -> list[ConstellationResponse]:
+def index(
+    player: CurrentPlayer,
+    db: DbDep,
+    tradition: MythTradition | None = Query(
+        default=None, description="Narrow to one body of myth."
+    ),
+) -> list[ConstellationResponse]:
     """The whole pantheon, each with where you stand in it.
 
     A read, and a safe one: a constellation you have never heard from comes
@@ -88,10 +95,13 @@ def index(player: CurrentPlayer, db: DbDep) -> list[ConstellationResponse]:
     Each carries a `friendship` block, because this is the screen you decide
     from: whether it issues to you, whether you may ask it to, and when you
     may ask again if you may not.
+
+    Twenty-six of them is a long list, so `?tradition=` narrows it to one
+    body of myth.
     """
     return [
         _with_standing(db, player, constellation)
-        for constellation in constellations.list_constellations(db)
+        for constellation in constellations.list_constellations(db, tradition=tradition)
     ]
 
 
