@@ -21,6 +21,9 @@ def daily_reset(
 ) -> DailyResetResponse:
     """Fail any daily quest left unfinished on a past date, then issue today's.
 
+    Also settles side quests whose windows have closed: unanswered ones expire
+    for free, accepted ones that fell short fail and pay their penalty.
+
     Safe to call on every app launch: it is idempotent within a local day, so
     repeat calls neither double-penalize nor duplicate quests.
     """
@@ -31,6 +34,8 @@ def daily_reset(
         reset_date=result.reset_date,
         failed_count=result.failed_count,
         spawned_count=result.spawned_count,
+        side_quests_expired=result.side_quests_expired,
+        side_quests_failed=result.side_quests_failed,
         total_exp_lost=result.total_exp_lost,
     )
 

@@ -21,7 +21,7 @@ from app.models import (
     QuestStatus,
     ScheduleKind,
 )
-from app.services import clock, scheduling
+from app.services import clock, scheduling, side_quests
 from app.services.progression import apply_exp_penalty, log_event
 from app.services.quests import get_or_create_instance, schedule_of
 
@@ -33,6 +33,11 @@ class DailyResetResult:
     reset_date: date
     failed_quest_ids: list[int] = field(default_factory=list)
     spawned_quest_ids: list[int] = field(default_factory=list)
+    # Side quests settled on the way past: ones never answered, and ones
+    # accepted and then left unfinished.
+    expired_side_quest_ids: list[int] = field(default_factory=list)
+    failed_side_quest_ids: list[int] = field(default_factory=list)
+    # Every EXP loss this reset caused, quests and side quests together.
     total_exp_lost: int = 0
 
     @property
@@ -44,8 +49,21 @@ class DailyResetResult:
         return len(self.spawned_quest_ids)
 
     @property
+    def side_quests_expired(self) -> int:
+        return len(self.expired_side_quest_ids)
+
+    @property
+    def side_quests_failed(self) -> int:
+        return len(self.failed_side_quest_ids)
+
+    @property
     def did_anything(self) -> bool:
-        return bool(self.failed_quest_ids or self.spawned_quest_ids)
+        return bool(
+            self.failed_quest_ids
+            or self.spawned_quest_ids
+            or self.expired_side_quest_ids
+            or self.failed_side_quest_ids
+        )
 
 
 def run_daily_reset(
@@ -60,12 +78,18 @@ def run_daily_reset(
     Idempotent: calling it repeatedly within the same local day is a no-op,
     because lapsed instances leave ACTIVE status and instance creation is
     unique per (quest, period_start).
+
+    Side quests ride along here rather than getting their own rollover call.
+    Their windows are UTC instants, not local days, so the sweep is a matter
+    of "settle anything whose deadline has passed" — which this is already the
+    place for, and which the app already calls on launch.
     """
     today = clock.local_date(player.timezone, now)
     result = DailyResetResult(reset_date=today)
 
     _expire_lapsed(db, player, settings, today, result)
     _open_due_periods(db, player, today, result)
+    _settle_side_quests(db, player, settings, result, now)
 
     if result.did_anything:
         log_event(
@@ -77,6 +101,8 @@ def run_daily_reset(
                 "date": today.isoformat(),
                 "failed": result.failed_count,
                 "spawned": result.spawned_count,
+                "side_quests_expired": result.side_quests_expired,
+                "side_quests_failed": result.side_quests_failed,
                 "exp_lost": result.total_exp_lost,
             },
         )
@@ -169,17 +195,37 @@ def _open_due_periods(
             result.spawned_quest_ids.append(quest.id)
 
 
+def _settle_side_quests(
+    db: Session,
+    player: Player,
+    settings: Settings,
+    result: DailyResetResult,
+    now,
+) -> None:
+    """Close out side quest offers whose windows have passed."""
+    swept = side_quests.sweep_offers(db, player, settings, now=now)
+    result.expired_side_quest_ids.extend(swept.expired_offer_ids)
+    result.failed_side_quest_ids.extend(swept.failed_offer_ids)
+    result.total_exp_lost += swept.total_exp_lost
+
+
 def _reset_message(result: DailyResetResult) -> str:
     parts = []
     if result.failed_count:
         parts.append(
             f"{result.failed_count} quest"
-            f"{'s' if result.failed_count != 1 else ''} failed "
-            f"(-{result.total_exp_lost} EXP)"
+            f"{'s' if result.failed_count != 1 else ''} failed"
         )
     if result.spawned_count:
         parts.append(f"{result.spawned_count} quest(s) issued")
-    return "Reset: " + ", ".join(parts) + "."
+    if result.side_quests_failed:
+        parts.append(f"{result.side_quests_failed} side quest(s) failed")
+    if result.side_quests_expired:
+        parts.append(f"{result.side_quests_expired} side quest(s) expired")
+
+    # One EXP figure at the end, covering quests and side quests together.
+    lost = f" (-{result.total_exp_lost} EXP)" if result.total_exp_lost else ""
+    return "Reset: " + ", ".join(parts) + lost + "."
 
 
 def run_daily_reset_for_all(

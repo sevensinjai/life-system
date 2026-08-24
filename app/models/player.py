@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.event import SystemEvent
     from app.models.quest import Penalty, Quest
     from app.models.quote import Quote
+    from app.models.side_quest import SideQuestOffer, SideQuestPreference
     from app.models.user import User
 
 
@@ -51,6 +52,14 @@ class Player(Base):
     )
     quotes: Mapped[list["Quote"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
+    )
+    side_quest_offers: Mapped[list["SideQuestOffer"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    # Absent until the player answers the opt-in question, which is what makes
+    # "no preference" mean "not enrolled".
+    side_quest_preference: Mapped["SideQuestPreference | None"] = relationship(
+        back_populates="player", uselist=False, cascade="all, delete-orphan"
     )
     penalties: Mapped[list["Penalty"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"

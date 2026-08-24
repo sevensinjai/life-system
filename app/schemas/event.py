@@ -31,4 +31,6 @@ class DailyResetResponse(BaseModel):
     reset_date: date
     failed_count: int
     spawned_count: int
+    side_quests_expired: int = 0
+    side_quests_failed: int = 0
     total_exp_lost: int
