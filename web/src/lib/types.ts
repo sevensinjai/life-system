@@ -14,6 +14,29 @@ export type StatName =
   | "vitality"
   | "intelligence"
   | "perception"
+export type Standing =
+  | "forsaken"
+  | "slighted"
+  | "stranger"
+  | "noticed"
+  | "favored"
+  | "champion"
+export type FriendshipStatus =
+  | "challenged"
+  | "accepted"
+  | "refused"
+  | "failed"
+  | "withdrawn"
+/** Why a request to be befriended would not be heard right now. */
+export type BlockedBy = "already_friends" | "request_open" | "too_soon" | "retired"
+export type SideQuestOfferStatus =
+  | "offered"
+  | "accepted"
+  | "declined"
+  | "completed"
+  | "failed"
+  | "expired"
+  | "withdrawn"
 export type EventType =
   | "quest_created"
   | "quest_progress"
@@ -202,3 +225,99 @@ export interface DailyReset {
   spawned_count: number
   total_exp_lost: number
 }
+
+
+// --- the pantheon --------------------------------------------------------
+
+export interface StandingBlock {
+  standing: Standing
+  favor: number
+  offers_received: number
+  completed: number
+  declined: number
+  expired: number
+  failed: number
+  first_seen_at: string | null
+  last_seen_at: string | null
+}
+
+export interface FriendshipBlock {
+  is_friend: boolean
+  befriended_at: string | null
+  may_ask: boolean
+  blocked_by: BlockedBy | null
+  retry_after: string | null
+  request_status: FriendshipStatus | null
+  challenge_offer_id: number | null
+}
+
+export interface Constellation {
+  code: string
+  name: string
+  epithet: string | null
+  description: string | null
+  domain: StatName | null
+  standing: StandingBlock
+  friendship: FriendshipBlock
+}
+
+/** A constellation's answer, given at once. */
+export interface FriendshipRequestResult {
+  status: FriendshipStatus
+  constellation: string
+  line: string | null
+  retry_after: string | null
+  challenge_offer_id: number | null
+}
+
+export interface ConstellationBrief {
+  code: string
+  name: string
+  epithet: string | null
+  domain: StatName | null
+}
+
+export interface SideQuest {
+  id: number
+  title: string
+  description: string | null
+  constellation: ConstellationBrief | null
+  difficulty: QuestDifficulty
+  target_count: number
+  unit: string | null
+  exp_reward: number
+  stat_reward: StatName | null
+  stat_reward_amount: number
+  penalty_exp: number
+  status: string
+  broadcast_at: string
+  expires_at: string | null
+  min_standing: Standing | null
+}
+
+export interface SideQuestOffer {
+  id: number
+  status: SideQuestOfferStatus
+  progress: number
+  target_count: number
+  expires_at: string | null
+  offered_at: string
+  responded_at: string | null
+  completed_at: string | null
+  side_quest: SideQuest
+}
+
+export interface SideQuestProgressResult {
+  offer: SideQuestOffer
+  completed: boolean
+}
+
+/** Ordered worst to best, which is also how the meter reads. */
+export const STANDINGS: Standing[] = [
+  "forsaken",
+  "slighted",
+  "stranger",
+  "noticed",
+  "favored",
+  "champion",
+]

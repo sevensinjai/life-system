@@ -467,7 +467,9 @@ skipped and the API runs as usual.
 It covers register and log in, the status window and stat allocation,
 authoring and editing quests on any schedule, logging progress, clearing
 quests, the quote collection and today's pick, the daily reset, the event feed,
-and the penalty ledger. The **System** tab also lists every call the page has
+and the penalty ledger. Its **Sky** screen is the pantheon: your standing with
+each constellation, asking one to befriend you, and the trial of admission
+that answer sets — accepted, progressed and cleared in place. The **System** tab also lists every call the page has
 made with its JSON, its status, and how long it took, so a failure is legible
 without opening devtools.
 

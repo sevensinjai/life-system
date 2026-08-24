@@ -37,6 +37,27 @@ export function percent(value: number, total: number): number {
   return Math.max(0, Math.min(100, Math.round((value / total) * 100)))
 }
 
+const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" })
+
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["day", 86_400_000],
+  ["hour", 3_600_000],
+  ["minute", 60_000],
+]
+
+/** "in 6 days", "2 hours ago" — for retry windows and expiry deadlines. */
+export function formatRelative(value: string | null | undefined): string {
+  if (!value) return "—"
+  const date = parseInstant(value)
+  if (Number.isNaN(date.valueOf())) return value
+
+  const delta = date.getTime() - Date.now()
+  for (const [unit, size] of UNITS) {
+    if (Math.abs(delta) >= size) return RELATIVE.format(Math.round(delta / size), unit)
+  }
+  return RELATIVE.format(Math.round(delta / 1000), "second")
+}
+
 /** The browser's IANA timezone, for pre-filling registration. */
 export function localTimezone(): string {
   try {

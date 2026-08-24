@@ -9,8 +9,10 @@
 import type {
   Account,
   BulkQuoteResult,
+  Constellation,
   DailyQuote,
   DailyReset,
+  FriendshipRequestResult,
   Health,
   Penalty,
   PlayerStatus,
@@ -19,6 +21,8 @@ import type {
   QuestPayload,
   Quote,
   QuoteDraft,
+  SideQuestOffer,
+  SideQuestProgressResult,
   StatBlock,
   SystemEvent,
   TokenResponse,
@@ -291,6 +295,40 @@ export class ApiClient {
     this.request<Quote>("PATCH", `/quotes/${id}`, { body: payload })
 
   archiveQuote = (id: number) => this.request<Quote>("DELETE", `/quotes/${id}`)
+
+  // --- the pantheon ------------------------------------------------------
+
+  constellations = () => this.request<Constellation[]>("GET", "/constellations")
+
+  constellation = (code: string) =>
+    this.request<Constellation>("GET", `/constellations/${code}`)
+
+  requestFriendship = (code: string, message?: string | null) =>
+    this.request<FriendshipRequestResult>("POST", `/constellations/${code}/friendship`, {
+      body: { message: message?.trim() || null },
+    })
+
+  endFriendship = (code: string) =>
+    this.request<Constellation>("DELETE", `/constellations/${code}/friendship`)
+
+  // --- side quests, including trials of admission -------------------------
+
+  sideQuestOffer = (id: number) =>
+    this.request<SideQuestOffer>("GET", `/side-quests/${id}`)
+
+  acceptSideQuest = (id: number) =>
+    this.request<SideQuestOffer>("POST", `/side-quests/${id}/accept`)
+
+  declineSideQuest = (id: number) =>
+    this.request<SideQuestOffer>("POST", `/side-quests/${id}/decline`)
+
+  progressSideQuest = (id: number, amount: number) =>
+    this.request<SideQuestProgressResult>("POST", `/side-quests/${id}/progress`, {
+      body: { amount },
+    })
+
+  completeSideQuest = (id: number) =>
+    this.request<SideQuestOffer>("POST", `/side-quests/${id}/complete`)
 
   dailyReset = () => this.request<DailyReset>("POST", "/system/daily-reset")
 

@@ -1,12 +1,13 @@
 /** The signed-in surface: a scrolling screen over a bottom tab bar. */
 
 import { useState } from "react"
-import { Gauge, ListChecks, Quote, ScrollText, Terminal } from "lucide-react"
+import { Gauge, ListChecks, Quote, ScrollText, Sparkles, Terminal } from "lucide-react"
 import type { LucideIcon } from "lucide-react"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { BoardView } from "@/features/quests/board-view"
 import { QuestsView } from "@/features/quests/quests-view"
+import { PantheonView } from "@/features/sky/pantheon-view"
 import { QuotesView } from "@/features/quotes/quotes-view"
 import { SystemView } from "@/features/system/system-view"
 import { StatusView } from "@/features/status/status-view"
@@ -18,12 +19,14 @@ interface Screen {
   render: () => React.ReactNode
 }
 
-// Five, deliberately: a phone tab bar stops being tappable past that, so the
-// event log and the request log share one "System" screen.
+// Six is the ceiling at phone width — past that the targets stop being
+// tappable — which is why the event log, the penalty ledger and the request
+// log share one "System" screen rather than taking a tab each.
 const SCREENS: Screen[] = [
   { value: "status", label: "Status", icon: Gauge, render: () => <StatusView /> },
   { value: "board", label: "Board", icon: ListChecks, render: () => <BoardView /> },
   { value: "quests", label: "Quests", icon: ScrollText, render: () => <QuestsView /> },
+  { value: "sky", label: "Sky", icon: Sparkles, render: () => <PantheonView /> },
   { value: "quotes", label: "Quotes", icon: Quote, render: () => <QuotesView /> },
   { value: "system", label: "System", icon: Terminal, render: () => <SystemView /> },
 ]

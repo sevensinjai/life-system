@@ -62,14 +62,24 @@ src/
     auth/              # register and log in
     status/            # status window, allocation, profile, daily reset
     quests/            # the board, the card, the authoring sheet
+    sky/               # the pantheon: standing, asking to be befriended,
+                       #   and the trial of admission that decides it
     quotes/            # the collection and today's pick
     system/            # events, penalties, and what went over the wire
     workspace.tsx      # the bottom tab bar and the screens it switches
   components/ui/       # shadcn components, unmodified
 ```
 
-Five tabs, because a phone tab bar stops being tappable past that: the event
-log, the penalty ledger, and the request log share the System screen.
+Six tabs is the ceiling at phone width: the event log, the penalty ledger and
+the request log share the System screen rather than taking one each.
+
+**Sky** is the pantheon. Each constellation shows your standing with it and
+what asking would do right now — the API answers that with a `blocked_by`
+reason, so the button says "will not hear you yet — ask in 7 days" instead of
+finding out by asking. Asking opens a sheet, and the constellation's answer
+lands in it: a refusal with the date you may ask again, or a trial of
+admission you can open, accept, log progress on, and clear without leaving the
+screen. Clearing it is what makes you friends.
 
 ## Sharing this with an iOS app
 
