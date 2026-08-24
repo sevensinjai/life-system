@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, get_settings
 from app.errors import register_error_handlers
-from app.routers import auth, health, players, quests, system
+from app.routers import auth, health, players, quests, quotes, system
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -44,6 +44,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(auth.router)
     app.include_router(players.router)
     app.include_router(quests.router)
+    app.include_router(quotes.router)
     app.include_router(system.router)
 
     return app

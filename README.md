@@ -9,6 +9,9 @@ quests open a period on whatever schedule you author, and a period that closes
 unfinished **fails and costs you EXP**. The penalty is what makes the loop mean
 something.
 
+You also keep a collection of **motivational quotes** you write yourself, and
+the System puts one of them on your lock screen each day.
+
 Built backend-first so an iOS client can sit on top of it.
 
 ## Setup
@@ -134,6 +137,17 @@ the original anchor, so re-tuning a quest does not silently restart its cycle.
 | `POST`   | `/quests/{id}/progress` | Log progress |
 | `POST`   | `/quests/{id}/complete` | Clear it outright |
 
+### Quotes
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| `POST`   | `/quotes` | Write a quote |
+| `POST`   | `/quotes/bulk` | Write a batch of them |
+| `GET`    | `/quotes` | Your collection (`?include_archived=`) |
+| `GET`    | `/quotes/today` | Today's quote — what the lock screen renders |
+| `GET`    | `/quotes/{id}` | Fetch one, archived included |
+| `PATCH`  | `/quotes/{id}` | Reword, re-attribute, or restore it |
+| `DELETE` | `/quotes/{id}` | Retire it from the rotation |
+
 ### System
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
@@ -211,6 +225,63 @@ midnight. For a player in `Asia/Seoul`, 20:00 UTC is already 05:00 the next
 day. Changing your timezone shifts future rollovers; it does not re-date
 periods that already exist.
 
+## Daily quotes
+
+Alongside quests you keep a collection of motivational lines — written by you,
+for you — and the System puts one of them on your lock screen each day.
+
+```bash
+# Write a few in one go
+curl -X POST localhost:8000/quotes/bulk -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{
+    "quotes": [
+      { "text": "Arise.", "author": "The System" },
+      { "text": "Hard days make hard people." },
+      { "text": "One more rep." }
+    ]
+  }'
+
+# What the widget asks for
+curl localhost:8000/quotes/today -H "Authorization: Bearer $TOKEN"
+```
+
+```json
+{
+  "local_date": "2026-08-24",
+  "quote": { "id": 2, "text": "Hard days make hard people.", "author": null,
+             "is_active": true, "created_at": "2026-08-24T09:12:44" },
+  "pool_size": 3,
+  "refresh_after": "2026-08-24T15:00:00Z"
+}
+```
+
+**One quote per local day, chosen by rotation.** Not a random draw, for two
+reasons: the same day always resolves to the same quote no matter how often the
+widget asks — so the lock screen never flickers between two lines — and
+consecutive days step through the collection in order, so every quote gets a
+turn before any of them repeats.
+
+Which quote a day lands on is *computed* from the pool rather than stored, so
+there is no state to roll over and no job to run: `/quotes/today` is a pure
+read that works whether or not the app has been opened. The trade is that
+adding or retiring a quote reshuffles which one future days land on. Today's
+answer holds for as long as the pool does.
+
+**The day turns at your local midnight**, the same one quests reset at.
+`refresh_after` is the UTC instant that happens, so a widget can schedule its
+own reload instead of polling.
+
+**Duplicates are skipped, not rejected.** Writing quotes is a paste-a-list
+activity, so a batch that repeats something already in your rotation adds only
+what is new and tells you what it skipped. Matching ignores case, whitespace,
+and attribution — the same words credited differently are still the same line
+on a lock screen. Only *active* quotes are matched against, so re-adding
+something you retired puts it back rather than silently doing nothing.
+
+**Retiring is archiving, not deleting.** A retired quote leaves the rotation
+but keeps its id, so a widget still holding yesterday's resolves it instead of
+erroring. `PATCH is_active=true` puts it back.
+
 ## Layout
 
 ```
@@ -221,17 +292,18 @@ app/
   security.py          # Argon2 hashing, JWT encode/decode
   deps.py              # settings / db / current-player dependencies
   errors.py            # AppError hierarchy + JSON error envelope
-  models/              # User, Player, Quest, QuestInstance, Penalty, SystemEvent
+  models/              # User, Player, Quest, QuestInstance, Quote, Penalty, SystemEvent
   schemas/             # Pydantic request/response models
   services/
     leveling.py        # pure EXP math — no ORM, no clock
     scheduling.py      # pure period math — when a quest is due, how long you have
+    quotes.py          # the quote collection; pure rotation for the daily pick
     progression.py     # awarding EXP, level-ups, penalties, stat spending
     quests.py          # quest lifecycle
     daily.py           # the rollover
     clock.py           # timezone-aware date handling
     status.py          # building the status window
-  routers/             # health, auth, players, quests, system
+  routers/             # health, auth, players, quests, quotes, system
 alembic/               # migrations
 scripts/daily_reset.py # cron entrypoint
 tests/
@@ -239,7 +311,8 @@ tests/
 
 `services/leveling.py` and `services/scheduling.py` are deliberately pure — no
 database, no clock, no settings object — which is what makes the EXP curve and
-the schedule rules cheap to test exhaustively and safe to retune.
+the schedule rules cheap to test exhaustively and safe to retune. The same
+holds for `pick_for_day` in `services/quotes.py`.
 
 ## Errors
 
@@ -307,6 +380,11 @@ migrations always target the same database the app uses.
 - Quest actions return the quest, its instance, `exp_gained`, and `leveled_up`
   in one response, so a completion needs no follow-up request to animate a
   level-up.
+- `GET /quotes/today` backs the lock-screen widget. It is a pure read — no
+  daily-reset call needed first — and `refresh_after` is the exact instant the
+  quote changes, which is what a WidgetKit timeline wants for its next reload.
+  An empty collection returns `quote: null` rather than a 404, so render a
+  prompt to write one instead of an error state.
 - `GET /system/events` is the notification feed. Each entry carries a
   `payload` with structured detail — `new_level`, `stat_points_gained`,
   `exp_lost` — so you can render System-style popups without parsing strings.
@@ -316,3 +394,7 @@ migrations always target the same database the app uses.
 Titles and achievements, rank (E–S) and job classes, multi-day dungeon
 challenges, quest chains, and reusable drafts or templates. The event log and
 quest model leave room for all of them.
+
+On the quote side: pinning a specific line to a specific day, tagging quotes so
+a mood or a training block draws from its own pool, and a starter set to write
+against instead of a blank collection.

@@ -12,6 +12,7 @@ from app.models.enums import StatName
 if TYPE_CHECKING:
     from app.models.event import SystemEvent
     from app.models.quest import Penalty, Quest
+    from app.models.quote import Quote
     from app.models.user import User
 
 
@@ -46,6 +47,9 @@ class Player(Base):
 
     user: Mapped["User"] = relationship(back_populates="player")
     quests: Mapped[list["Quest"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    quotes: Mapped[list["Quote"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
     penalties: Mapped[list["Penalty"]] = relationship(
