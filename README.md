@@ -12,6 +12,9 @@ something.
 You also keep a collection of **motivational quotes** you write yourself, and
 the System puts one of them on your lock screen each day.
 
+And if you want it to, the System will occasionally hand you a **side quest**
+of its own — the same one it broadcast to every other player who opted in.
+
 Built backend-first so an iOS client can sit on top of it.
 
 ## Setup
@@ -109,6 +112,95 @@ Editing a quest applies from the next period onward — the open one is left
 alone rather than retroactively re-dated. Changing an interval's length keeps
 the original anchor, so re-tuning a quest does not silently restart its cycle.
 
+## Side quests
+
+Quests are yours: you write them, you tune them, nobody else sees them. A
+**side quest** is the opposite — the System issues one to everybody at once,
+authored by whatever is on the other end of the broadcast (a constellation, a
+god; the story layer will say). You choose whether any of it reaches you.
+
+### Opting in
+
+Off until you turn it on. A player who has never answered the question has no
+preference row at all, which reads as opted out — nobody is enrolled quietly.
+
+```bash
+curl -X PATCH localhost:8000/side-quests/preferences \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{
+    "is_opted_in": true,
+    "frequency": "occasional",
+    "max_difficulty": "B",
+    "auto_accept": false
+  }'
+```
+
+| Setting | Meaning |
+| ------- | ------- |
+| `is_opted_in` | Whether broadcasts reach you at all |
+| `frequency` | How many may reach you per rolling week: `rare` 1, `occasional` 3, `frequent` 7 |
+| `max_difficulty` | The hardest rank you will be sent; `null` accepts anything |
+| `auto_accept` | Skip the yes/no step and be counted in automatically |
+
+The frequency cap is what "occasionally" actually means: the System broadcasts
+as often as it likes, and this decides how much of that traffic you see. It is
+measured over a rolling seven days, and a *declined* offer still uses a slot —
+what you rationed is the interruption, not the acceptance.
+
+Opting in takes effect immediately. Any broadcast still open that you are
+eligible for is offered to you on the spot, up to your cap, rather than making
+you wait for the next one. Opting out stops new offers but leaves anything you
+already accepted alone; the System does not retract a quest you took up.
+
+### The three tables
+
+| Table | Scope | Holds |
+| ----- | ----- | ----- |
+| `side_quests` | one row for everyone | the broadcast: rewards, rank, audience, window |
+| `side_quest_offers` | one row per player reached | their answer and their progress |
+| `side_quest_preferences` | one row per player | the opt-in above |
+
+An offer is unique per (side quest, player), which is what makes dispatch
+idempotent: re-running a broadcast reaches only the players it missed the
+first time — someone who opted in an hour late, or who was at their cap until
+now.
+
+Unlike quests, side quests run on **absolute UTC instants** rather than
+player-local days. A broadcast reaches Seoul and São Paulo at the same moment,
+so its window cannot be a calendar date. Offers snapshot the deadline and the
+target count at dispatch, so retuning a broadcast mid-flight cannot move
+anyone's goalposts.
+
+### Ignoring one is free
+
+Only an offer you **accepted** and then left unfinished can cost you EXP, and
+only when the broadcast carried a `penalty_exp` at all (the default is zero).
+The endings are recorded separately because they are different stories:
+
+| Ending | When | Costs |
+| ------ | ---- | ----- |
+| `declined` | you passed on it | nothing |
+| `expired` | you never answered before the window closed | nothing |
+| `withdrawn` | the broadcast was cancelled | nothing |
+| `completed` | you cleared it | pays EXP and any stat reward |
+| `failed` | you accepted it, then the window closed short | the broadcast's penalty |
+
+An optional system that punishes you for opting in is not optional, so the
+only branch with teeth is the one you deliberately walked into.
+
+### Getting broadcasts out
+
+A side quest is authored SCHEDULED and sits there until something dispatches
+it. `scripts/broadcast_side_quests.py` is that something — put it on the same
+cron as the daily reset:
+
+```bash
+*/15 * * * * cd /srv/system && .venv/bin/python -m scripts.broadcast_side_quests
+```
+
+Offers are settled per player by `POST /system/daily-reset`, which the app
+already calls on launch: unanswered offers expire for free, accepted ones that
+fell short fail and pay their penalty.
+
 ## Endpoints
 
 ### Auth
@@ -148,10 +240,22 @@ the original anchor, so re-tuning a quest does not silently restart its cycle.
 | `PATCH`  | `/quotes/{id}` | Reword, re-attribute, or restore it |
 | `DELETE` | `/quotes/{id}` | Retire it from the rotation |
 
+### Side quests
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| `GET`   | `/side-quests/preferences` | Your opt-in settings and this week's count |
+| `PATCH` | `/side-quests/preferences` | Opt in or out, set frequency and rank cap |
+| `GET`   | `/side-quests` | Side quests you were offered (`?status=`, `?live_only=`) |
+| `GET`   | `/side-quests/{id}` | Fetch one offer |
+| `POST`  | `/side-quests/{id}/accept` | Take it up |
+| `POST`  | `/side-quests/{id}/decline` | Pass on it |
+| `POST`  | `/side-quests/{id}/progress` | Log progress |
+| `POST`  | `/side-quests/{id}/complete` | Clear it outright |
+
 ### System
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
-| `POST` | `/system/daily-reset` | Roll periods over: lapse the closed, open the due |
+| `POST` | `/system/daily-reset` | Roll periods over: lapse the closed, open the due, settle side quests |
 | `GET`  | `/system/events` | The notification feed (`?event_type=`, `?limit=`, `?offset=`) |
 | `GET`  | `/system/penalties` | Every EXP loss on record |
 
@@ -197,6 +301,10 @@ Two deliberate design decisions:
 - **The floor is zero.** If you have less EXP than the penalty, you lose what
   you have and no more. The recorded `exp_lost` reflects what was actually
   taken, not what was owed.
+
+Side quests are penalized on the same terms but only when you accepted one:
+see [Ignoring one is free](#ignoring-one-is-free). An offer you never answered
+expires for nothing.
 
 The rollover is **idempotent within a local day** — running it repeatedly
 neither double-penalizes nor duplicates periods — enforced by a unique
@@ -292,7 +400,7 @@ app/
   security.py          # Argon2 hashing, JWT encode/decode
   deps.py              # settings / db / current-player dependencies
   errors.py            # AppError hierarchy + JSON error envelope
-  models/              # User, Player, Quest, QuestInstance, Quote, Penalty, SystemEvent
+  models/              # User, Player, Quest, QuestInstance, Quote, SideQuest, Penalty, SystemEvent
   schemas/             # Pydantic request/response models
   services/
     leveling.py        # pure EXP math — no ORM, no clock
@@ -300,12 +408,13 @@ app/
     quotes.py          # the quote collection; pure rotation for the daily pick
     progression.py     # awarding EXP, level-ups, penalties, stat spending
     quests.py          # quest lifecycle
+    side_quests.py     # the opt-in, broadcasting, and answering side quests
     daily.py           # the rollover
     clock.py           # timezone-aware date handling
     status.py          # building the status window
-  routers/             # health, auth, players, quests, quotes, system
+  routers/             # health, auth, players, quests, quotes, side-quests, system
 alembic/               # migrations
-scripts/daily_reset.py # cron entrypoint
+scripts/               # cron entrypoints: daily_reset, broadcast_side_quests
 tests/
 ```
 
@@ -385,6 +494,11 @@ migrations always target the same database the app uses.
   quote changes, which is what a WidgetKit timeline wants for its next reload.
   An empty collection returns `quote: null` rather than a 404, so render a
   prompt to write one instead of an error state.
+- `GET /side-quests/preferences` backs the opt-in screen. It reports
+  `offers_per_week` against `offers_this_week`, so you can show what the
+  chosen frequency actually means rather than just the word.
+- Side quest timestamps are absolute UTC instants, not local dates, and always
+  come back with an offset. `expires_at` is the deadline; null means none.
 - `GET /system/events` is the notification feed. Each entry carries a
   `payload` with structured detail — `new_level`, `stat_points_gained`,
   `exp_lost` — so you can render System-style popups without parsing strings.
@@ -398,3 +512,10 @@ quest model leave room for all of them.
 On the quote side: pinning a specific line to a specific day, tagging quotes so
 a mood or a training block draws from its own pool, and a starter set to write
 against instead of a blank collection.
+
+On the side quest side, the data structure is in place but the story is not:
+who the heralds are, what they say, and where the broadcasts come from. There
+is no authoring API yet either — broadcasts are written through
+`services/side_quests.create_side_quest` and sent by the cron script. Quiet
+hours, per-player deadlines, and a shared record of who cleared a broadcast
+are all further out.

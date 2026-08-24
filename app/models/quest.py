@@ -146,7 +146,7 @@ class QuestInstance(Base):
 
 
 class Penalty(Base):
-    """EXP docked for letting a daily quest expire unfinished."""
+    """EXP docked for letting a quest — or an accepted side quest — lapse."""
 
     __tablename__ = "penalties"
 
@@ -154,8 +154,13 @@ class Penalty(Base):
     player_id: Mapped[int] = mapped_column(
         ForeignKey("players.id", ondelete="CASCADE"), index=True
     )
+    # Exactly one of these points at the thing that lapsed; both are null once
+    # that row is gone, leaving `reason` as the record.
     quest_instance_id: Mapped[int | None] = mapped_column(
         ForeignKey("quest_instances.id", ondelete="SET NULL"), nullable=True
+    )
+    side_quest_offer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("side_quest_offers.id", ondelete="SET NULL"), nullable=True
     )
 
     reason: Mapped[str] = mapped_column(String(255))

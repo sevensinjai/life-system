@@ -13,6 +13,19 @@ def utcnow() -> datetime:
     return datetime.now(UTC)
 
 
+def as_utc(moment: datetime) -> datetime:
+    """Read a stored timestamp back as an aware UTC instant.
+
+    Every datetime column in this app holds UTC, but SQLite hands them back
+    with no timezone attached, and comparing one of those against an aware
+    `now` raises. Normalizing on the way out keeps "timestamps are UTC" true
+    in Python as well as in the database.
+    """
+    if moment.tzinfo is None:
+        return moment.replace(tzinfo=UTC)
+    return moment.astimezone(UTC)
+
+
 def resolve_timezone(name: str) -> ZoneInfo:
     """Look up an IANA timezone, falling back to UTC if it is unknown.
 

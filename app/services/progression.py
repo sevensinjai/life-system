@@ -6,7 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.errors import ValidationError
-from app.models import EventType, Penalty, Player, QuestInstance, StatName, SystemEvent
+from app.models import (
+    EventType,
+    Penalty,
+    Player,
+    QuestInstance,
+    SideQuestOffer,
+    StatName,
+    SystemEvent,
+)
 from app.services import leveling
 
 
@@ -78,11 +86,15 @@ def apply_exp_penalty(
     *,
     reason: str,
     instance: QuestInstance | None = None,
+    side_quest_offer: SideQuestOffer | None = None,
 ) -> Penalty:
     """Dock EXP and record why.
 
     The amount recorded is what was actually lost, which can be less than
     `amount` when the player had too little EXP to take the full hit.
+
+    At most one of `instance` and `side_quest_offer` is given — a penalty
+    comes from a lapsed quest period or a lapsed side quest, never both.
     """
     if amount < 0:
         raise ValidationError("Penalty amount must be non-negative.")
@@ -95,6 +107,7 @@ def apply_exp_penalty(
     penalty = Penalty(
         player_id=player.id,
         quest_instance_id=instance.id if instance else None,
+        side_quest_offer_id=side_quest_offer.id if side_quest_offer else None,
         reason=reason,
         exp_lost=actually_lost,
     )

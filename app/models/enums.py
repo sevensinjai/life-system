@@ -28,11 +28,66 @@ class QuestDifficulty(StrEnum):
     A = "A"
     S = "S"
 
+    @property
+    def rank(self) -> int:
+        """Position on the ladder, 0 for E through 5 for S.
+
+        Ranks are declared in ascending order, so comparing them is comparing
+        positions. A player who caps their side quests at B rank is saying
+        "nothing above index 3".
+        """
+        return list(QuestDifficulty).index(self)
+
 
 class QuestStatus(StrEnum):
     ACTIVE = "active"
     COMPLETED = "completed"
     FAILED = "failed"
+
+
+class SideQuestStatus(StrEnum):
+    """Where a side quest broadcast is in its life.
+
+    Unlike a quest instance, a broadcast is one row shared by everyone, so its
+    status describes the sky rather than any one player: whether the thing has
+    been announced, whether its window is over, whether it was called off.
+    """
+
+    DRAFT = "draft"          # written, not going anywhere yet
+    SCHEDULED = "scheduled"  # queued to go out at broadcast_at
+    BROADCAST = "broadcast"  # announced; offers exist
+    CLOSED = "closed"        # window over, answered or not
+    CANCELLED = "cancelled"  # called off; every open offer is void
+
+
+class SideQuestOfferStatus(StrEnum):
+    """One player's side of a broadcast.
+
+    DECLINED, EXPIRED and WITHDRAWN all end an offer without a penalty, and
+    they are kept apart on purpose: passing on a side quest, never answering
+    one, and having it withdrawn are different stories, and only FAILED — a
+    quest taken up and then let go — can ever cost EXP.
+    """
+
+    OFFERED = "offered"      # reached the player, awaiting an answer
+    ACCEPTED = "accepted"    # taken up; progress counts
+    DECLINED = "declined"    # passed on, deliberately
+    COMPLETED = "completed"
+    FAILED = "failed"        # accepted, then the window closed unfinished
+    EXPIRED = "expired"      # never answered before the window closed
+    WITHDRAWN = "withdrawn"  # the broadcast itself was cancelled
+
+
+class SideQuestFrequency(StrEnum):
+    """How often a player wants the sky to interrupt them.
+
+    Opting in is not a blank cheque: the System broadcasts on its own schedule,
+    and this is the player's say over how much of that reaches them.
+    """
+
+    RARE = "rare"
+    OCCASIONAL = "occasional"
+    FREQUENT = "frequent"
 
 
 class StatName(StrEnum):
@@ -54,6 +109,14 @@ class EventType(StrEnum):
     STATS_ALLOCATED = "stats_allocated"
     PENALTY_APPLIED = "penalty_applied"
     DAILY_RESET = "daily_reset"
+    SIDE_QUEST_OFFERED = "side_quest_offered"
+    SIDE_QUEST_ACCEPTED = "side_quest_accepted"
+    SIDE_QUEST_DECLINED = "side_quest_declined"
+    SIDE_QUEST_PROGRESS = "side_quest_progress"
+    SIDE_QUEST_COMPLETED = "side_quest_completed"
+    SIDE_QUEST_FAILED = "side_quest_failed"
+    SIDE_QUEST_EXPIRED = "side_quest_expired"
+    SIDE_QUEST_WITHDRAWN = "side_quest_withdrawn"
 
 
 # Default EXP awarded for clearing a quest of each difficulty.
@@ -64,4 +127,13 @@ DIFFICULTY_EXP: dict[QuestDifficulty, int] = {
     QuestDifficulty.B: 400,
     QuestDifficulty.A: 800,
     QuestDifficulty.S: 1600,
+}
+
+
+# How many side quest offers a week each frequency allows through. The System
+# broadcasts as often as it likes; this is what the player actually receives.
+SIDE_QUEST_OFFERS_PER_WEEK: dict[SideQuestFrequency, int] = {
+    SideQuestFrequency.RARE: 1,
+    SideQuestFrequency.OCCASIONAL: 3,
+    SideQuestFrequency.FREQUENT: 7,
 }
