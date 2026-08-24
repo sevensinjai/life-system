@@ -3,7 +3,12 @@
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 32+ bytes, matching the minimum RFC 7518 recommends for HMAC-SHA256.
+DEV_JWT_SECRET = "dev-only-insecure-secret-change-me-before-deploying"
+MIN_JWT_SECRET_BYTES = 32
 
 
 class Settings(BaseSettings):
@@ -16,7 +21,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "cat-only-svg-api"
+    app_name: str = "system-api"
     environment: Literal["development", "test", "production"] = "development"
     debug: bool = False
     version: str = "0.1.0"
@@ -24,8 +29,39 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # Comma-separated in the environment, e.g. APP_CORS_ORIGINS='["http://localhost:5173"]'
     cors_origins: list[str] = ["*"]
+
+    database_url: str = "sqlite:///./system.db"
+
+    jwt_secret: str = DEV_JWT_SECRET
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60 * 24 * 14  # two weeks; it is a phone app
+
+    # Progression tuning. Changing these reshapes the whole level curve, so they
+    # live in settings rather than as literals buried in the service layer.
+    exp_curve_base: int = 100
+    exp_curve_exponent: float = 1.5
+    stat_points_per_level: int = 3
+    penalty_exp_multiplier: float = 1.0
+
+    @model_validator(mode="after")
+    def _check_jwt_secret(self) -> "Settings":
+        """Refuse to start production with a weak or default signing key."""
+        if self.environment != "production":
+            return self
+
+        if self.jwt_secret == DEV_JWT_SECRET:
+            raise ValueError(
+                "APP_JWT_SECRET must be set to a real secret when "
+                "APP_ENVIRONMENT=production. Generate one with: "
+                "python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            )
+        if len(self.jwt_secret.encode()) < MIN_JWT_SECRET_BYTES:
+            raise ValueError(
+                f"APP_JWT_SECRET must be at least {MIN_JWT_SECRET_BYTES} bytes "
+                "for HMAC-SHA256 (RFC 7518 section 3.2)."
+            )
+        return self
 
 
 @lru_cache

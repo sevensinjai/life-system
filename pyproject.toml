@@ -1,12 +1,17 @@
 [project]
-name = "cat-only-svg-api"
+name = "system-api"
 version = "0.1.0"
-description = "Backend API for cat-only-svg"
+description = "A real-life RPG System: quests, EXP, levels, stats, and penalties"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "pydantic-settings>=2.4",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "pyjwt>=2.8",
+    "pwdlib[argon2]>=0.2",
+    "email-validator>=2.0",
 ]
 
 [project.optional-dependencies]
@@ -24,4 +29,4 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["app*", "scripts*"]

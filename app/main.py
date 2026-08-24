@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, get_settings
 from app.errors import register_error_handlers
-from app.routers import health
+from app.routers import auth, health, players, quests, system
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -21,6 +21,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         title=settings.app_name,
         version=settings.version,
         debug=settings.debug,
+        description=(
+            "A real-life RPG System: quests, EXP, levels, stats, "
+            "and penalties for the dailies you skip."
+        ),
     )
 
     app.add_middleware(
@@ -37,6 +41,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     register_error_handlers(app)
     app.include_router(health.router)
+    app.include_router(auth.router)
+    app.include_router(players.router)
+    app.include_router(quests.router)
+    app.include_router(system.router)
 
     return app
 

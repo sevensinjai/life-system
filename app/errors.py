@@ -37,6 +37,18 @@ class ValidationError(AppError):
     message = "The request payload is invalid."
 
 
+class AuthenticationError(AppError):
+    status_code = status.HTTP_401_UNAUTHORIZED
+    code = "unauthenticated"
+    message = "Invalid or missing credentials."
+
+
+class ConflictError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "conflict"
+    message = "The resource already exists."
+
+
 def _error_body(code: str, message: str, details: object | None = None) -> dict:
     body: dict = {"error": {"code": code, "message": message}}
     if details is not None:
