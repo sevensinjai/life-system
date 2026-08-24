@@ -1,7 +1,22 @@
 """The constellations: who is watching, and how each of them talks.
 
-Six of them, each with a domain it cares about and a voice of its own. The
-voice is a mapping of *line kind* to *standing* to a list of alternatives:
+Six of them, drawn from real mythology — two Greek, two Chinese, two Japanese
+— rather than invented. Each is a figure who is actually remembered for the
+thing it now asks of you: the headless god who kept fighting, the student who
+was poor and did not mind, the sun that hid in a cave and came back out.
+
+That is also why the two names in the schema line up so neatly. The **real
+name** is the figure: 刑天, Hermes, 天照大神. The **code name** is the title it
+speaks under, taken from its own story — 「猛志常在」 from the line Tao
+Yuanming wrote about Xingtian, 「一簞一瓢」 from the passage in the Analects
+about Yan Hui. The title is what appears when it speaks; the name underneath
+is the reminder that it was somebody.
+
+Written with the respect owed to figures people still honour. They ask for
+persistence, restraint, study and attention — the things they are actually
+remembered for — and they are never made ridiculous.
+
+The voice is a mapping of *line kind* to *standing* to a list of alternatives:
 
     {"offer": {"default": ["..."], "favored": ["..."]}}
 
@@ -34,12 +49,8 @@ class ConstellationEntry:
 
     `code` is the identifier the database and the catalogs agree on, not a
     name. The names are the two below it: the **code name** it is called by,
-    and the **real name** it had when it was somebody. Both are given in
-    English and Traditional Chinese.
-
-    The real names are ordinary personal names on purpose. A constellation is
-    a title; the name under the title is the reminder that it used to be a
-    person who did the thing it now asks of you.
+    and the **real name** of the figure behind it. Both are given in English
+    and Traditional Chinese.
     """
 
     code: str
@@ -72,91 +83,100 @@ SYSTEM_VOICE: dict[str, dict[str, list[str]]] = {
 
 PANTHEON: tuple[ConstellationEntry, ...] = (
     ConstellationEntry(
-        code="fallen_star",
-        code_name="The Fallen Star",
-        code_name_zh_hant="「墜星」",
-        real_name="Yue Chen-zhou",
-        real_name_zh_hant="岳沉舟",
-        epithet="who fell, and stood up anyway",
-        epithet_zh_hant="墜而復起者",
+        code="xingtian",
+        code_name="The Will That Remains",
+        code_name_zh_hant="「猛志常在」",
+        real_name="Xingtian",
+        real_name_zh_hant="刑天",
+        epithet="who lost his head and went on fighting",
+        epithet_zh_hant="首斷而戰不止者",
         description=(
-            "It fell a long way and took a long time getting up, and it has "
-            "no patience at all for anyone who talks about how far they fell. "
-            "It watches for people doing the standing-up part."
+            "Beheaded for challenging the Yellow Emperor, and buried under a "
+            "mountain, he stood up with his nipples for eyes and his navel "
+            "for a mouth and kept swinging. Tao Yuanming wrote the line his "
+            "title comes from: 刑天舞干戚，猛志固常在 — he brandishes axe and "
+            "shield, and the fierce will remains. He has no patience for "
+            "anyone who talks about how badly they lost. He watches for the "
+            "standing-up part."
         ),
         domain=StatName.STRENGTH,
         voice={
             "offer": {
-                "default": ["Something is asked of you. Get up."],
-                "stranger": ["You do not know me yet. Get up anyway."],
-                "favored": ["You again. Good. Get up."],
-                "champion": ["I have told the others to watch you. Do not embarrass me."],
+                "default": ["Something is asked of you. Take it up."],
+                "stranger": ["You do not know me. Take it up regardless."],
+                "favored": ["You again. Good. Take up the axe."],
+                "champion": ["I have given the others your name. Do not shame it."],
             },
-            "accept": {"default": ["Then do it."]},
+            "accept": {"default": ["Then begin."]},
             "decline": {
-                "default": ["Noted. There will be others."],
+                "default": ["Noted. The axe keeps."],
                 "slighted": ["Of course."],
             },
             "complete": {
-                "default": ["That is what standing up looks like."],
-                "champion": ["Again. And you did not even look at me first."],
+                "default": ["That is what going on looks like."],
+                "champion": ["Again. And you did not look to me first."],
             },
             "fail": {"default": ["You stopped. I saw where."]},
             "expire": {"default": ["You did not answer. That is an answer."]},
             "refuse": {
-                "default": ["Not today. Ask me again when you have done something."],
+                "default": ["Not today. Come back having done something."],
                 "slighted": ["No."],
             },
-            "befriend": {"default": ["You are one of mine now. Do not make me regret it."]},
+            "befriend": {"default": ["You are of my company now. Do not make me regret it."]},
             "rebuff": {"default": ["You asked, and then you stopped. That is the answer."]},
-            "farewell": {"default": ["Go, then. Get up wherever you land."]},
+            "farewell": {"default": ["Go. Keep something in your hands wherever you land."]},
         },
     ),
     ConstellationEntry(
-        code="long_road",
-        code_name="The Long Road",
-        code_name_zh_hant="「長路」",
-        real_name="Xu Qian-li",
-        real_name_zh_hant="徐千里",
-        epithet="who is still walking",
-        epithet_zh_hant="行而未至者",
+        code="hermes",
+        code_name="The Winged Sandal",
+        code_name_zh_hant="「飛翼之履」",
+        real_name="Hermes",
+        real_name_zh_hant="赫爾墨斯",
+        epithet="who is never where he started",
+        epithet_zh_hant="未嘗留於原處者",
         description=(
-            "It has never arrived anywhere and does not expect to. It is "
-            "interested in distance covered, not in destinations, and it "
-            "measures people by whether they were still moving on day forty."
+            "God of roads, thresholds, travellers and messages, and the only "
+            "Olympian permitted to cross every border there is. Cairns were "
+            "piled at the roadside for him by people who had somewhere to be. "
+            "He is interested in ground covered, not in arriving, and he "
+            "measures people by whether they were still moving on the "
+            "fortieth day."
         ),
         domain=StatName.AGILITY,
         voice={
             "offer": {
-                "default": ["The road asks for a stretch of your day."],
-                "noticed": ["You have kept up so far. A little further."],
+                "default": ["A road asks for a stretch of your day."],
+                "noticed": ["You have kept pace so far. A little further."],
             },
-            "accept": {"default": ["Then we walk."]},
-            "decline": {"default": ["The road is long. It will ask again."]},
+            "accept": {"default": ["Then we go."]},
+            "decline": {"default": ["The road keeps. It will ask again."]},
             "complete": {
-                "default": ["Distance covered. That is the whole of it."],
-                "favored": ["You have gone further than most who start."],
+                "default": ["Ground covered. That is the whole of it."],
+                "favored": ["You have gone further than most who set out."],
             },
-            "fail": {"default": ["You sat down. Everyone sits down. Get up when you can."]},
+            "fail": {"default": ["You sat down. Everyone sits down. Rise when you can."]},
             "expire": {"default": ["The road went on without you."]},
-            "refuse": {"default": ["Not yet. The road is not going anywhere."]},
-            "befriend": {"default": ["Then we walk together. Keep up."]},
+            "refuse": {"default": ["Not yet. I am on my way elsewhere."]},
+            "befriend": {"default": ["Then we travel together. Keep up."]},
             "rebuff": {"default": ["You turned back at the first mile. It happens."]},
-            "farewell": {"default": ["Safe travels. You know where the road is."]},
+            "farewell": {"default": ["Safe roads. You know where to find one."]},
         },
     ),
     ConstellationEntry(
-        code="empty_bowl",
-        code_name="The Empty Bowl",
-        code_name_zh_hant="「空缽」",
-        real_name="Shi Zhi-zu",
-        real_name_zh_hant="釋知足",
-        epithet="who is not hungry",
-        epithet_zh_hant="無所求者",
+        code="yan_hui",
+        code_name="One Basket, One Gourd",
+        code_name_zh_hant="「一簞一瓢」",
+        real_name="Yan Hui",
+        real_name_zh_hant="顏回",
+        epithet="who was poor and did not mind",
+        epithet_zh_hant="簞瓢屢空而不改其樂者",
         description=(
-            "It gave up wanting things a long time ago and found the quiet on "
-            "the other side of that worth having. It offers trials of "
-            "restraint, and it never explains them."
+            "Confucius' best student, who died young. The Analects keep the "
+            "line his title comes from: 一簞食，一瓢飲，在陋巷 — one basket of "
+            "rice, one gourd of water, a shabby lane; others could not have "
+            "borne the misery, and he did not let it change his joy. He sets "
+            "trials of going without, and he never explains them."
         ),
         domain=StatName.VITALITY,
         voice={
@@ -165,28 +185,31 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
                 "favored": ["You have done this before. It gets no easier. Again."],
             },
             "accept": {"default": ["Good. Now the quiet part."]},
-            "decline": {"default": ["The bowl stays empty either way."]},
+            "decline": {"default": ["The bowl is empty either way."]},
             "complete": {"default": ["You wanted it and did not take it. That is the whole trial."]},
             "fail": {"default": ["You took it. There is no scolding here; only the taking."]},
-            "expire": {"default": ["The bowl was there all week."]},
-            "refuse": {"default": ["Ask again when you want it less."]},
-            "befriend": {"default": ["Sit down. There is nothing to eat here."]},
+            "expire": {"default": ["The bowl sat there all week."]},
+            "refuse": {"default": ["Not now. Ask again when you want it less."]},
+            "befriend": {"default": ["Sit. There is nothing here to eat, and that is the point."]},
             "rebuff": {"default": ["You wanted it more than you wanted this."]},
-            "farewell": {"default": ["The bowl stays empty. It was never for you alone."]},
+            "farewell": {"default": ["Go well. The bowl stays empty; it was never only mine."]},
         },
     ),
     ConstellationEntry(
-        code="silent_library",
-        code_name="The Silent Library",
-        code_name_zh_hant="「寂靜書閣」",
-        real_name="Lu Bu-yan",
-        real_name_zh_hant="陸不言",
-        epithet="who has read everything and says little",
-        epithet_zh_hant="讀盡萬卷而寡言者",
+        code="michizane",
+        code_name="The Plum That Followed",
+        code_name_zh_hant="「飛梅之筆」",
+        real_name="Sugawara no Michizane",
+        real_name_zh_hant="菅原道真",
+        epithet="who was sent away, and whose plum tree came after him",
+        epithet_zh_hant="見謫而梅隨之者",
         description=(
-            "It collects what people learn and files it somewhere nobody has "
-            "seen. It speaks in short sentences because it thinks most "
-            "sentences are too long."
+            "A scholar and minister slandered out of the capital and exiled "
+            "to Dazaifu, where he died. The story says the plum tree he had "
+            "said goodbye to uprooted itself and flew to him. Enshrined "
+            "afterwards as Tenjin, and petitioned ever since by students the "
+            "night before an examination. He speaks in short sentences "
+            "because he thinks most sentences are too long."
         ),
         domain=StatName.INTELLIGENCE,
         voice={
@@ -197,8 +220,8 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             "accept": {"default": ["Begin."]},
             "decline": {"default": ["The book waits. Books are good at that."]},
             "complete": {
-                "default": ["Filed."],
-                "favored": ["Filed, and I have read it twice."],
+                "default": ["Recorded."],
+                "favored": ["Recorded, and read twice."],
             },
             "fail": {"default": ["Unfinished. The worst kind of book."]},
             "expire": {"default": ["Unopened."]},
@@ -209,17 +232,20 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
         },
     ),
     ConstellationEntry(
-        code="unblinking_eye",
-        code_name="The Unblinking Eye",
-        code_name_zh_hant="「不瞬之眼」",
-        real_name="Gu Wei",
-        real_name_zh_hant="顧微",
-        epithet="who has not looked away since",
-        epithet_zh_hant="未嘗移目者",
+        code="argus",
+        code_name="The Hundred Eyes",
+        code_name_zh_hant="「百目」",
+        real_name="Argus Panoptes",
+        real_name_zh_hant="阿爾戈斯",
+        epithet="whose hundred eyes were never all closed",
+        epithet_zh_hant="百目未嘗俱閉者",
         description=(
-            "It notices. That is the entire thing it does. It finds people "
-            "who go through their days without seeing them and it makes them "
-            "look, once, properly."
+            "The all-seeing giant Hera set to watch Io, with a hundred eyes "
+            "of which only some slept at a time — so there was no hour in "
+            "which he was not looking. Hermes eventually lulled every one of "
+            "them shut, and Hera set the eyes in the peacock's tail. Noticing "
+            "is the entire thing he does. He finds people going through their "
+            "days without seeing them."
         ),
         domain=StatName.PERCEPTION,
         voice={
@@ -231,7 +257,7 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             "decline": {"default": ["I saw you decide that."]},
             "complete": {"default": ["You saw it. Most never do."]},
             "fail": {"default": ["You looked away again."]},
-            "expire": {"default": ["It was in front of you the whole time."]},
+            "expire": {"default": ["It stood in front of you the whole time."]},
             "refuse": {"default": ["I have seen you. That is not the same as choosing you."]},
             "befriend": {"default": ["I am watching you now. On purpose."]},
             "rebuff": {"default": ["You looked away before I had finished looking."]},
@@ -239,37 +265,39 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
         },
     ),
     ConstellationEntry(
-        code="sleepless_lantern",
-        code_name="The Sleepless Lantern",
-        code_name_zh_hant="「不寐之燈」",
-        real_name="Song Chang-ming",
-        real_name_zh_hant="宋長明",
-        epithet="who keeps the light on",
-        epithet_zh_hant="長明不熄者",
+        code="amaterasu",
+        code_name="The Door Opened Again",
+        code_name_zh_hant="「岩戶重開」",
+        real_name="Amaterasu",
+        real_name_zh_hant="天照大神",
+        epithet="who went into the cave, and came back out",
+        epithet_zh_hant="入岩戶而復出者",
         description=(
-            "It does not care what you are doing, only that you came back to "
-            "it. It has no domain and no ambition; it burns all night for "
-            "whoever is still up, and it counts the days you return."
+            "The sun, who took offence and shut herself in the rock cave of "
+            "heaven, and left the world dark until the other gods laughed "
+            "loudly enough outside that she looked out to see why. She is not "
+            "interested in whether you kept going. She is interested in "
+            "whether you came back, and she counts the times you did."
         ),
         domain=None,
         voice={
             "offer": {
-                "default": ["The light is on. Come back to it once more."],
-                "forsaken": ["The light is still on. It always was."],
-                "champion": ["You have come back so many times I have stopped counting. Come back."],
+                "default": ["Come back to it once more."],
+                "forsaken": ["The door is not barred. It never was."],
+                "champion": ["You have come back so often I have stopped counting. Come back."],
             },
-            "accept": {"default": ["Then I will wait up."]},
-            "decline": {"default": ["Sleep, then. The light stays on."]},
+            "accept": {"default": ["Then I will wait."]},
+            "decline": {"default": ["Rest, then. The light keeps."]},
             "complete": {
                 "default": ["You came back. That is the only thing I ever ask."],
                 "noticed": ["Twice now. I notice these things."],
             },
-            "fail": {"default": ["You did not come back this time. The light is still on."]},
-            "expire": {"default": ["I waited up. It is fine. I always do."]},
-            "refuse": {"default": ["Come back tomorrow and ask me again. I will be up."]},
-            "befriend": {"default": ["Then the light is for you as well."]},
-            "rebuff": {"default": ["You did not come back. The light stays on anyway."]},
-            "farewell": {"default": ["The light stays on. It is not conditional."]},
+            "fail": {"default": ["You did not come back this time. The light is still here."]},
+            "expire": {"default": ["I waited. It is no matter. I always do."]},
+            "refuse": {"default": ["Come again tomorrow and ask. I will be here."]},
+            "befriend": {"default": ["Then the light is yours as well."]},
+            "rebuff": {"default": ["You did not return. The door stays open regardless."]},
+            "farewell": {"default": ["The light stays. It was never conditional."]},
         },
     ),
 )

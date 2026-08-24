@@ -9,7 +9,7 @@ It does nothing while a broadcast is still open, so the sky stays quiet
 between trials rather than stacking three at once. Pass a catalog code to send
 a specific one instead of taking the next in rotation:
 
-    .venv/bin/python -m scripts.schedule_side_quest fallen_star.hundred
+    .venv/bin/python -m scripts.schedule_side_quest xingtian.hundred
 
 Scheduling is not sending. `scripts/broadcast_side_quests.py` is what puts a
 scheduled trial in front of players when its moment arrives.

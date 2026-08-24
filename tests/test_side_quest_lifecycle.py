@@ -37,25 +37,25 @@ def hunter(db) -> Player:
 
 
 @pytest.fixture
-def fallen_star(db, hunter):
+def xingtian(db, hunter):
     """The pantheon, seeded, with the player already a friend of this one.
 
     A constellation issues to its friends and nobody else, so a test about
     what happens *after* a trial arrives has to start from friendship.
     """
     constellations.seed_pantheon(db)
-    star = constellations.get_by_code(db, "fallen_star")
+    star = constellations.get_by_code(db, "xingtian")
     befriend(db, hunter, star, when=NOW)
     return star
 
 
 @pytest.fixture
-def offer(db, hunter, fallen_star):
+def offer(db, hunter, xingtian):
     """One open offer, worth 200 EXP with a 100 EXP penalty for dropping it."""
     side_quest = side_quests.create_side_quest(
         db,
         title="Slay ten shadows",
-        constellation=fallen_star,
+        constellation=xingtian,
         target_count=10,
         unit="shadows",
         exp_reward=200,
@@ -87,8 +87,8 @@ def test_a_broadcast_lands_in_the_system_log(db, hunter, offer) -> None:
     """The feed carries the constellation's voice, with the facts alongside."""
     announcement = events_of(db, hunter, EventType.SIDE_QUEST_OFFERED)[0]
 
-    assert announcement.message.startswith("The Fallen Star: ")
-    assert announcement.payload["constellation"] == "fallen_star"
+    assert announcement.message.startswith("The Will That Remains: ")
+    assert announcement.payload["constellation"] == "xingtian"
     assert announcement.payload["title"] == "Slay ten shadows"
     assert announcement.payload["penalty_exp"] == 100
 

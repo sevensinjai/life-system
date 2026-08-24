@@ -56,7 +56,7 @@ class Constellation(Base):
     __tablename__ = "constellations"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    # Stable slug the catalog and the seed script agree on, e.g. "fallen_star".
+    # Stable slug the catalog and the seed script agree on, e.g. "xingtian".
     # Not a name — an identifier. Names get rewritten; this survives the edit.
     code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
 
@@ -71,7 +71,7 @@ class Constellation(Base):
     # part of this content that is bilingual today: the voices and the trials
     # are still English-only until the localization pass, but a name is
     # identity rather than prose, and a client may reasonably want to show
-    # both at once — 「墜星」 The Fallen Star — rather than pick one.
+    # both at once — 「猛志常在」 The Will That Remains — rather than pick one.
     code_name: Mapped[str] = mapped_column(String(120))
     code_name_zh_hant: Mapped[str | None] = mapped_column(String(120), nullable=True)
     real_name: Mapped[str | None] = mapped_column(String(120), nullable=True)

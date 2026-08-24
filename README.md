@@ -218,35 +218,54 @@ fell short fail and pay their penalty.
 
 ## The constellations
 
-A side quest comes from somebody. The pantheon is six of them, each with a
-domain it cares about and a voice of its own — written by hand in
-`app/content/pantheon.py` and seeded into the database, so a constellation is
-a row a broadcast points at rather than a name typed into each one.
+A side quest comes from somebody. The pantheon is six figures out of real
+mythology — two Greek, two Chinese, two Japanese — each remembered for the
+thing it now asks of you: the headless god who kept fighting, the student who
+was poor and did not mind, the sun that hid in a cave and came back out.
+
+They are written by hand in `app/content/pantheon.py` and seeded into the
+database, so a constellation is a row a broadcast points at rather than a name
+typed into each one.
 
 Nothing they issue reaches you until you have befriended them, so the pantheon
 screen is where the game actually starts.
 
-Each has two names. The **code name** is what it is called — a title, grand
-and impersonal, and the name it speaks under. The **real name** is who it was
-before it was a constellation, which is the point of having one: a
-constellation is a title, and the name under the title is the reminder that it
-used to be a person who did the thing it now asks of you.
+Each has two names. The **real name** is the figure — 刑天, Hermes, 天照大神.
+The **code name** is the title it speaks under, taken from its own story:
+「猛志常在」 is the line Tao Yuanming wrote about Xingtian, *the fierce will
+remains*; 「一簞一瓢」 is the passage in the Analects about Yan Hui, *one
+basket, one gourd*. The title is what appears when it speaks; the name
+underneath is the reminder that it was somebody.
 
 Both are carried in English and Traditional Chinese, so a client can show
-either or both — 「墜星」 The Fallen Star.
+either or both — 「猛志常在」 The Will That Remains.
 
-| Code name | 代號 | Real name | 本名 | Domain | Cares about |
-| --------- | ---- | --------- | ---- | ------ | ----------- |
-| The Fallen Star | 「墜星」 | Yue Chen-zhou | 岳沉舟 | strength | getting up after you did not |
-| The Long Road | 「長路」 | Xu Qian-li | 徐千里 | agility | distance covered, not destinations |
-| The Empty Bowl | 「空缽」 | Shi Zhi-zu | 釋知足 | vitality | putting something down for a while |
-| The Silent Library | 「寂靜書閣」 | Lu Bu-yan | 陸不言 | intelligence | learning a thing well enough to say it |
-| The Unblinking Eye | 「不瞬之眼」 | Gu Wei | 顧微 | perception | noticing what you walk past |
-| The Sleepless Lantern | 「不寐之燈」 | Song Chang-ming | 宋長明 | — | coming back, however badly |
+| Code name | 代號 | Real name | 本名 | Myth | Domain | Cares about |
+| --------- | ---- | --------- | ---- | ---- | ------ | ----------- |
+| The Will That Remains | 「猛志常在」 | Xingtian | 刑天 | Chinese | strength | going on after you were beaten |
+| The Winged Sandal | 「飛翼之履」 | Hermes | 赫爾墨斯 | Greek | agility | ground covered, not arriving |
+| One Basket, One Gourd | 「一簞一瓢」 | Yan Hui | 顏回 | Chinese | vitality | going without, and not minding |
+| The Plum That Followed | 「飛梅之筆」 | Sugawara no Michizane | 菅原道真 | Japanese | intelligence | learning a thing well enough to say it |
+| The Hundred Eyes | 「百目」 | Argus Panoptes | 阿爾戈斯 | Greek | perception | noticing what you walk past |
+| The Door Opened Again | 「岩戶重開」 | Amaterasu | 天照大神 | Japanese | — | coming back, however badly |
 
-`code` in the database (`fallen_star`) is an identifier, not a name: it is
-what survives a rewrite, which is how re-seeding can rename a constellation in
-both scripts without touching a single player's history with it.
+Each is set to what they are actually remembered for. Xingtian was beheaded
+for challenging the Yellow Emperor and went on swinging; Hermes is the god of
+roads and thresholds; Yan Hui lived on one basket of rice and one gourd of
+water and did not let it change his joy; Michizane was exiled and his plum
+tree is said to have flown after him, and students have petitioned him before
+examinations ever since; Argus had a hundred eyes of which only some slept at
+a time; Amaterasu shut herself in the rock cave and left the world dark until
+she came back out. They are written with the respect owed to figures people
+still honour — they ask for persistence, restraint, study and attention, and
+they are never made ridiculous.
+
+`code` in the database (`xingtian`) is an identifier, not a name: it is what
+survives a rewrite, which is how re-seeding can rename a constellation in both
+scripts without touching a single player's history with it. A constellation
+that leaves the catalog is **retired**, never deleted — it stops issuing and
+stops being offered, and every favor row, friendship, and side quest it
+already sent stays exactly where it is.
 
 Names are the one part of the content that is bilingual today — the voices and
 the trials are still English-only until the localization pass. A name is
@@ -256,8 +275,8 @@ of dialogue is not.
 The trials themselves live in `app/content/broadcasts.py` — three per
 constellation, written to be clearable by anyone, anywhere, with nothing to
 buy. Each constellation also has one **trial of admission** in
-`app/content/challenges.py`: the smallest true test of what it cares about,
-set for whoever asks to be befriended.
+`app/content/challenges.py`: the smallest true test of what that figure is
+remembered for, set for whoever asks to be befriended.
 
 ### Befriending a constellation
 
@@ -266,9 +285,9 @@ is only half of it: until you have befriended somebody, nothing arrives. You
 do not join a constellation — you ask, and it decides.
 
 ```bash
-curl -X POST localhost:8000/constellations/fallen_star/friendship \
+curl -X POST localhost:8000/constellations/xingtian/friendship \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{ "message": "I fell too." }'
+  -d '{ "message": "I was beaten too." }'
 ```
 
 The answer comes back at once, and it is one of two things:
@@ -282,10 +301,10 @@ endpoints as anything else. Clear it and you are friends. Fail it, decline it,
 or let it lapse and the request closes with the same seven-day wait.
 
 ```
-The Constellation of the Fallen Star: Not today. Ask me again when you have done something.
+The Will That Remains: Not today. Come back having done something.
     ... seven days later ...
-The Constellation of the Fallen Star: You asked. Twenty, then. Now.
-The Constellation of the Fallen Star: Fine. You are one of mine. (+100 EXP)
+The Will That Remains: You asked. Twenty, then. Now.
+The Will That Remains: Fine. You are of my company. (+100 EXP)
 ```
 
 Three things the trial of admission deliberately is not. It carries **no
@@ -354,10 +373,10 @@ Standing and friendship are separate on purpose: favor is what a constellation
 its champion and still walk away; you can be slighted and still be a friend.
 
 ```
-The Constellation of the Fallen Star: You do not know me yet. Get up anyway.
-The Constellation of the Fallen Star: Then do it.
+The Will That Remains: You do not know me. Take it up regardless.
+The Will That Remains: Then begin.
 One hundred, in one day: 100/100
-The Constellation of the Fallen Star: That is what standing up looks like. (+200 EXP)
+The Will That Remains: That is what going on looks like. (+200 EXP)
 ```
 
 The System log carries the voice; the title, rank, EXP and favor movement ride
@@ -736,6 +755,10 @@ plausibly offer better terms to a champion. Multi-part arcs, quiet hours,
 per-player deadlines, and a shared record of who else cleared a broadcast are
 all further out. So is a second language, which the content layout is shaped
 for but nothing implements.
+
+The pantheon is six figures; the mythologies they come from hold hundreds.
+Adding a seventh is a catalog entry, a trial of admission and three trials —
+no schema, no code.
 
 On friendship: the arbiter rolls dice. Replacing it with one that reads the
 request is the next obvious move, and everything it would need is already

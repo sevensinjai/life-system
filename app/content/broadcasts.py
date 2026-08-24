@@ -49,10 +49,10 @@ class BroadcastEntry:
 
 
 BROADCASTS: tuple[BroadcastEntry, ...] = (
-    # -- The Fallen Star: getting up ---------------------------------------
+    # -- Xingtian 刑天: going on -------------------------------------------
     BroadcastEntry(
-        code="fallen_star.hundred",
-        constellation="fallen_star",
+        code="xingtian.hundred",
+        constellation="xingtian",
         title="One hundred, in one day",
         description=(
             "A hundred of whatever you do to make yourself stronger. Push-ups, "
@@ -67,8 +67,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=24,
     ),
     BroadcastEntry(
-        code="fallen_star.before_dawn",
-        constellation="fallen_star",
+        code="xingtian.before_dawn",
+        constellation="xingtian",
         title="Up before you want to be",
         description=(
             "Once, in the next two days, get up the first time you wake and "
@@ -81,8 +81,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=48,
     ),
     BroadcastEntry(
-        code="fallen_star.after_the_fall",
-        constellation="fallen_star",
+        code="xingtian.after_the_fall",
+        constellation="xingtian",
         title="The set after the one you failed",
         description=(
             "Find the thing you gave up on this week and do one more of it. "
@@ -95,10 +95,10 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
         min_standing=Standing.NOTICED,
     ),
-    # -- The Long Road: distance -------------------------------------------
+    # -- Hermes 赫爾墨斯: ground covered -------------------------------------
     BroadcastEntry(
-        code="long_road.ten_thousand",
-        constellation="long_road",
+        code="hermes.ten_thousand",
+        constellation="hermes",
         title="Ten thousand steps",
         description=(
             "Cover ten thousand steps before this closes. They do not have to "
@@ -112,8 +112,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=36,
     ),
     BroadcastEntry(
-        code="long_road.three_walks",
-        constellation="long_road",
+        code="hermes.three_walks",
+        constellation="hermes",
         title="Three walks, any length",
         description=(
             "Three times, go outside and walk with no destination. Ten "
@@ -125,8 +125,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
     ),
     BroadcastEntry(
-        code="long_road.long_way",
-        constellation="long_road",
+        code="hermes.long_way",
+        constellation="hermes",
         title="The long way round",
         description=(
             "Once, take the longer route somewhere you were going anyway. "
@@ -137,10 +137,10 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         unit="journeys",
         window_hours=48,
     ),
-    # -- The Empty Bowl: restraint -----------------------------------------
+    # -- Yan Hui 顏回: going without ----------------------------------------
     BroadcastEntry(
-        code="empty_bowl.one_day",
-        constellation="empty_bowl",
+        code="yan_hui.one_day",
+        constellation="yan_hui",
         title="A day without the one thing",
         description=(
             "You know what it is. You thought of it as you read this line. "
@@ -154,8 +154,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=48,
     ),
     BroadcastEntry(
-        code="empty_bowl.eight_glasses",
-        constellation="empty_bowl",
+        code="yan_hui.eight_glasses",
+        constellation="yan_hui",
         title="Eight glasses of water",
         description=(
             "Plain water, eight times, before this closes. An unglamorous "
@@ -167,8 +167,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=24,
     ),
     BroadcastEntry(
-        code="empty_bowl.hour_of_quiet",
-        constellation="empty_bowl",
+        code="yan_hui.hour_of_quiet",
+        constellation="yan_hui",
         title="One hour, nothing in your hands",
         description=(
             "An hour awake with no screen, no book, no music. Sit with the "
@@ -180,10 +180,10 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
         min_standing=Standing.NOTICED,
     ),
-    # -- The Silent Library: learning --------------------------------------
+    # -- Sugawara no Michizane 菅原道真: study -------------------------------
     BroadcastEntry(
-        code="silent_library.thirty_pages",
-        constellation="silent_library",
+        code="michizane.thirty_pages",
+        constellation="michizane",
         title="Thirty pages",
         description="Thirty pages of anything you are not required to read.",
         difficulty=QuestDifficulty.D,
@@ -194,8 +194,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=48,
     ),
     BroadcastEntry(
-        code="silent_library.explain_it",
-        constellation="silent_library",
+        code="michizane.explain_it",
+        constellation="michizane",
         title="Explain it to somebody",
         description=(
             "Take one thing you learned this week and explain it out loud to "
@@ -207,8 +207,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
     ),
     BroadcastEntry(
-        code="silent_library.finish_it",
-        constellation="silent_library",
+        code="michizane.finish_it",
+        constellation="michizane",
         title="Finish the one you abandoned",
         description=(
             "The book, the course, the half-written thing. Not all of it — "
@@ -221,10 +221,10 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=48,
         min_standing=Standing.FAVORED,
     ),
-    # -- The Unblinking Eye: attention -------------------------------------
+    # -- Argus Panoptes 阿爾戈斯: attention ----------------------------------
     BroadcastEntry(
-        code="unblinking_eye.five_things",
-        constellation="unblinking_eye",
+        code="argus.five_things",
+        constellation="argus",
         title="Five things you had not noticed",
         description=(
             "Find five things on a route you take every day that you have "
@@ -238,8 +238,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=48,
     ),
     BroadcastEntry(
-        code="unblinking_eye.ask_once",
-        constellation="unblinking_eye",
+        code="argus.ask_once",
+        constellation="argus",
         title="Ask somebody how they actually are",
         description=(
             "Once, ask a person you see often and wait through the first "
@@ -251,8 +251,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
     ),
     BroadcastEntry(
-        code="unblinking_eye.ten_minutes",
-        constellation="unblinking_eye",
+        code="argus.ten_minutes",
+        constellation="argus",
         title="Ten minutes at the window",
         description=(
             "Ten minutes looking out of a window at whatever is out there. "
@@ -263,10 +263,10 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         unit="minutes",
         window_hours=24,
     ),
-    # -- The Sleepless Lantern: coming back --------------------------------
+    # -- Amaterasu 天照大神: coming back -------------------------------------
     BroadcastEntry(
-        code="sleepless_lantern.come_back",
-        constellation="sleepless_lantern",
+        code="amaterasu.come_back",
+        constellation="amaterasu",
         title="The thing you stopped doing",
         description=(
             "Whatever you were doing daily until you stopped — do it once "
@@ -278,8 +278,8 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
     ),
     BroadcastEntry(
-        code="sleepless_lantern.same_hour",
-        constellation="sleepless_lantern",
+        code="amaterasu.same_hour",
+        constellation="amaterasu",
         title="Two days at the same hour",
         description=(
             "Do one small thing at the same hour on two days running. Any "
@@ -291,12 +291,12 @@ BROADCASTS: tuple[BroadcastEntry, ...] = (
         window_hours=72,
     ),
     BroadcastEntry(
-        code="sleepless_lantern.lights_out",
-        constellation="sleepless_lantern",
+        code="amaterasu.lights_out",
+        constellation="amaterasu",
         title="Lights out at the hour you chose",
         description=(
             "Pick the hour now. Be in bed at it, once, in the next two nights. "
-            "I keep the light on so that you do not have to."
+            "I keep the light so that you need not."
         ),
         difficulty=QuestDifficulty.C,
         target_count=1,

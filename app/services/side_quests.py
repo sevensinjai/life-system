@@ -179,6 +179,10 @@ def skip_reason(
     if not preference.is_opted_in:
         return "opted_out"
 
+    # A retired constellation issues nothing, even to the friends it kept.
+    if side_quest.constellation is not None and not side_quest.constellation.is_active:
+        return "constellation_retired"
+
     # A constellation issues to its friends and to nobody else. The way in is
     # its trial of admission, which is handed over directly and never passes
     # through here.

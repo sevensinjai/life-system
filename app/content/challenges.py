@@ -5,11 +5,11 @@ in. You ask; if it agrees to hear you it sets one of these; clearing it makes
 you friends. Failing it, declining it, or letting it lapse ends the request
 and starts the wait before you may ask again.
 
-One per constellation, and each is written to be the smallest true test of
-what that constellation cares about — a first meeting, not a proving ground.
-They are deliberately easier than the trials that follow, and none of them
-carries a penalty: a stranger who fails an audition has lost the audition,
-which is punishment enough.
+One per constellation, and each is the smallest true test of what that figure
+is remembered for — a first meeting, not a proving ground. They are
+deliberately easier than the trials that follow, and none of them carries a
+penalty: a stranger who fails an audition has lost the audition, which is
+punishment enough.
 """
 
 from app.content.broadcasts import BroadcastEntry
@@ -19,9 +19,9 @@ from app.models.enums import QuestDifficulty
 # *is* a side quest — the only difference is that it is addressed to one
 # player rather than broadcast to all of them.
 CHALLENGES: dict[str, BroadcastEntry] = {
-    "fallen_star": BroadcastEntry(
-        code="fallen_star.admission",
-        constellation="fallen_star",
+    "xingtian": BroadcastEntry(
+        code="xingtian.admission",
+        constellation="xingtian",
         title="Twenty, now",
         description=(
             "You want my attention. Twenty of something hard, before this "
@@ -33,18 +33,18 @@ CHALLENGES: dict[str, BroadcastEntry] = {
         window_hours=48,
         lines={
             "offer": {"default": ["You asked. Twenty, then. Now."]},
-            "complete": {"default": ["Fine. You are one of mine."]},
+            "complete": {"default": ["Fine. You are of my company."]},
             "fail": {"default": ["Twenty. You asked me for this."]},
             "expire": {"default": ["You asked, and then you did nothing."]},
         },
     ),
-    "long_road": BroadcastEntry(
-        code="long_road.admission",
-        constellation="long_road",
+    "hermes": BroadcastEntry(
+        code="hermes.admission",
+        constellation="hermes",
         title="Two thousand steps",
         description=(
-            "Come and walk with me once before you ask to walk with me often. "
-            "Two thousand steps. Any two thousand."
+            "Travel with me once before you ask to travel with me often. Two "
+            "thousand steps. Any two thousand."
         ),
         difficulty=QuestDifficulty.E,
         target_count=2000,
@@ -52,13 +52,13 @@ CHALLENGES: dict[str, BroadcastEntry] = {
         window_hours=48,
         lines={
             "offer": {"default": ["Walk with me once, and we will see."]},
-            "complete": {"default": ["Then we walk together. Keep up."]},
+            "complete": {"default": ["Then we travel together. Keep up."]},
             "fail": {"default": ["You did not come. The road is unbothered."]},
         },
     ),
-    "empty_bowl": BroadcastEntry(
-        code="empty_bowl.admission",
-        constellation="empty_bowl",
+    "yan_hui": BroadcastEntry(
+        code="yan_hui.admission",
+        constellation="yan_hui",
         title="One evening, nothing after dark",
         description=(
             "One evening: eat nothing after the light goes. If that is not "
@@ -71,13 +71,13 @@ CHALLENGES: dict[str, BroadcastEntry] = {
         window_hours=48,
         lines={
             "offer": {"default": ["One evening. Then ask me again."]},
-            "complete": {"default": ["You can want a thing and not take it. Come in."]},
-            "fail": {"default": ["You took it. I am not angry; I am only correct."]},
+            "complete": {"default": ["You can want a thing and not take it. Sit down."]},
+            "fail": {"default": ["You took it. I am not angry; I am only right."]},
         },
     ),
-    "silent_library": BroadcastEntry(
-        code="silent_library.admission",
-        constellation="silent_library",
+    "michizane": BroadcastEntry(
+        code="michizane.admission",
+        constellation="michizane",
         title="Ten pages",
         description="Ten pages. Any book. I will know if they were the same page.",
         difficulty=QuestDifficulty.E,
@@ -85,14 +85,14 @@ CHALLENGES: dict[str, BroadcastEntry] = {
         unit="pages",
         window_hours=48,
         lines={
-            "offer": {"default": ["Ten pages. Then we will talk."]},
+            "offer": {"default": ["Ten pages. Then we will speak."]},
             "complete": {"default": ["Accepted. Your shelf is that one."]},
             "fail": {"default": ["Unread. A short book, too."]},
         },
     ),
-    "unblinking_eye": BroadcastEntry(
-        code="unblinking_eye.admission",
-        constellation="unblinking_eye",
+    "argus": BroadcastEntry(
+        code="argus.admission",
+        constellation="argus",
         title="Three things you had not noticed",
         description=(
             "Before I watch you, show me you can watch. Three things on a "
@@ -108,13 +108,13 @@ CHALLENGES: dict[str, BroadcastEntry] = {
             "fail": {"default": ["Nothing. On a route you walk every day."]},
         },
     ),
-    "sleepless_lantern": BroadcastEntry(
-        code="sleepless_lantern.admission",
-        constellation="sleepless_lantern",
+    "amaterasu": BroadcastEntry(
+        code="amaterasu.admission",
+        constellation="amaterasu",
         title="Come back tomorrow",
         description=(
             "Do one small thing today, and the same small thing tomorrow. "
-            "That is all I have ever asked anyone."
+            "That is all I have ever asked of anyone."
         ),
         difficulty=QuestDifficulty.D,
         target_count=2,
@@ -123,8 +123,8 @@ CHALLENGES: dict[str, BroadcastEntry] = {
         lines={
             "offer": {"default": ["Today, and then tomorrow. That is the whole test."]},
             "complete": {"default": ["You came back. Of course you are welcome."]},
-            "fail": {"default": ["Only the once. The light stays on regardless."]},
-            "expire": {"default": ["I waited up for you. I do not mind. Ask again."]},
+            "fail": {"default": ["Only the once. The light stays regardless."]},
+            "expire": {"default": ["I waited for you. It is no matter. Ask again."]},
         },
     ),
 }

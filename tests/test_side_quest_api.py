@@ -19,7 +19,7 @@ def broadcast(db, auth_client, player):
     which is the path a real late opt-in takes.
     """
     constellations.seed_pantheon(db)
-    star = constellations.get_by_code(db, "fallen_star")
+    star = constellations.get_by_code(db, "xingtian")
     befriend(db, player, star, when=NOW)
     side_quest = side_quests.create_side_quest(
         db,
@@ -226,7 +226,7 @@ def test_the_pantheon_screen_says_whether_you_may_ask(auth_client, db) -> None:
     constellations.seed_pantheon(db)
     db.commit()
 
-    entry = auth_client.get("/constellations/fallen_star").json()
+    entry = auth_client.get("/constellations/xingtian").json()
 
     assert entry["friendship"]["is_friend"] is False
     assert entry["friendship"]["may_ask"] is True
@@ -245,7 +245,7 @@ def test_asking_returns_the_answer_at_once(auth_client, db, monkeypatch) -> None
     )
 
     response = auth_client.post(
-        "/constellations/fallen_star/friendship", json={"message": "I fell too."}
+        "/constellations/xingtian/friendship", json={"message": "I fell too."}
     )
 
     assert response.status_code == 201
@@ -267,12 +267,12 @@ def test_a_granted_request_hands_over_a_trial(auth_client, db, monkeypatch) -> N
     )
 
     body = auth_client.post(
-        "/constellations/fallen_star/friendship", json={}
+        "/constellations/xingtian/friendship", json={}
     ).json()
 
     assert body["status"] == "challenged"
     offer = auth_client.get(f"/side-quests/{body['challenge_offer_id']}").json()
-    assert offer["side_quest"]["constellation"]["code"] == "fallen_star"
+    assert offer["side_quest"]["constellation"]["code"] == "xingtian"
 
     # And clearing it through the ordinary endpoints makes the friendship.
     auth_client.post(f"/side-quests/{offer['id']}/accept")
@@ -281,7 +281,7 @@ def test_a_granted_request_hands_over_a_trial(auth_client, db, monkeypatch) -> N
         json={"amount": offer["target_count"]},
     )
 
-    entry = auth_client.get("/constellations/fallen_star").json()
+    entry = auth_client.get("/constellations/xingtian").json()
     assert entry["friendship"]["is_friend"] is True
 
 
@@ -294,25 +294,25 @@ def test_asking_inside_the_wait_is_a_422(auth_client, db, monkeypatch) -> None:
         friendship, "default_arbiter", lambda settings: lambda petition:
         friendship.Verdict(heard=False, reason="Not today.")
     )
-    auth_client.post("/constellations/fallen_star/friendship", json={})
+    auth_client.post("/constellations/xingtian/friendship", json={})
 
-    response = auth_client.post("/constellations/fallen_star/friendship", json={})
+    response = auth_client.post("/constellations/xingtian/friendship", json={})
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "validation_error"
 
-    entry = auth_client.get("/constellations/fallen_star").json()
+    entry = auth_client.get("/constellations/xingtian").json()
     assert entry["friendship"]["blocked_by"] == "too_soon"
     assert entry["friendship"]["retry_after"] is not None
 
 
 def test_ending_a_friendship_over_http(auth_client, db, player) -> None:
     constellations.seed_pantheon(db)
-    star = constellations.get_by_code(db, "fallen_star")
+    star = constellations.get_by_code(db, "xingtian")
     befriend(db, player, star, when=NOW)
     db.commit()
 
-    body = auth_client.delete("/constellations/fallen_star/friendship").json()
+    body = auth_client.delete("/constellations/xingtian/friendship").json()
 
     assert body["friendship"]["is_friend"] is False
     assert body["friendship"]["blocked_by"] == "too_soon"

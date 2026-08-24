@@ -91,7 +91,7 @@ def test_seeding_twice_changes_nothing(db) -> None:
 
 def test_a_rewritten_voice_updates_in_place(db, hunter, pantheon) -> None:
     """A constellation must survive a rewrite with its history intact."""
-    star = pantheon["fallen_star"]
+    star = pantheon["xingtian"]
     constellations.record_outcome(
         db, hunter, star, SideQuestOfferStatus.COMPLETED, QuestDifficulty.C, now=NOW
     )
@@ -99,15 +99,65 @@ def test_a_rewritten_voice_updates_in_place(db, hunter, pantheon) -> None:
 
     entries = tuple(
         type(entry)(**{**entry.__dict__, "code_name": "The Star That Fell"})
-        if entry.code == "fallen_star"
+        if entry.code == "xingtian"
         else entry
         for entry in PANTHEON
     )
     result = constellations.seed_pantheon(db, entries)
 
-    assert result.updated == ["fallen_star"]
+    assert result.updated == ["xingtian"]
     assert star.code_name == "The Star That Fell"
     assert constellations.get_favor(db, hunter, star).favor == favor_before
+
+
+def test_a_constellation_that_leaves_the_catalog_is_retired_not_deleted(
+    db, hunter
+) -> None:
+    """Recasting the pantheon must not delete anyone's history with the old one."""
+    constellations.seed_pantheon(db)
+    departing = constellations.get_by_code(db, "argus")
+    befriend(db, hunter, departing, when=NOW)
+    constellations.record_outcome(
+        db, hunter, departing, SideQuestOfferStatus.COMPLETED, QuestDifficulty.C,
+        now=NOW,
+    )
+    favor_before = constellations.get_favor(db, hunter, departing).favor
+
+    remaining = tuple(entry for entry in PANTHEON if entry.code != "argus")
+    result = constellations.seed_pantheon(db, remaining)
+
+    assert result.retired == ["argus"]
+    assert departing.is_active is False
+    assert constellations.get_favor(db, hunter, departing).favor == favor_before
+    # Retired means "issues nothing", not "gone": it is off the pantheon list
+    # but still resolvable by code, so old events can still be rendered.
+    assert departing not in constellations.list_constellations(db)
+    assert constellations.get_by_code(db, "argus") is departing
+
+
+def test_a_retired_constellation_stops_reaching_its_friends(db, hunter, settings) -> None:
+    constellations.seed_pantheon(db)
+    departing = constellations.get_by_code(db, "argus")
+    befriend(db, hunter, departing, when=NOW)
+    constellations.seed_pantheon(
+        db, tuple(entry for entry in PANTHEON if entry.code != "argus")
+    )
+
+    side_quest = side_quests.create_side_quest(
+        db, title="A last look", constellation=departing, expires_at=DEADLINE, now=NOW
+    )
+
+    assert side_quests.broadcast(db, side_quest, now=NOW).offered_count == 0
+
+
+def test_a_constellation_that_returns_is_reinstated(db) -> None:
+    constellations.seed_pantheon(db)
+    without = tuple(entry for entry in PANTHEON if entry.code != "argus")
+    constellations.seed_pantheon(db, without)
+
+    constellations.seed_pantheon(db)
+
+    assert constellations.get_by_code(db, "argus").is_active is True
 
 
 def test_every_written_trial_belongs_to_a_real_constellation() -> None:
@@ -135,7 +185,7 @@ def test_no_written_trial_costs_more_than_it_pays() -> None:
 
 def test_two_who_have_never_met_leave_no_row(db, hunter) -> None:
     constellations.seed_pantheon(db)
-    road = constellations.get_by_code(db, "long_road")
+    road = constellations.get_by_code(db, "hermes")
 
     favor = constellations.get_favor(db, hunter, road)
 
@@ -145,16 +195,16 @@ def test_two_who_have_never_met_leave_no_row(db, hunter) -> None:
 
 
 def test_being_offered_something_starts_a_record(db, hunter, pantheon) -> None:
-    issue(db, pantheon["fallen_star"])
+    issue(db, pantheon["xingtian"])
 
-    favor = constellations.get_favor(db, hunter, pantheon["fallen_star"])
+    favor = constellations.get_favor(db, hunter, pantheon["xingtian"])
     assert favor.offers_received == 1
     assert favor.favor == 0  # meeting is not yet an opinion
     assert favor.first_seen_at is not None
 
 
 def test_clearing_trials_raises_standing(db, hunter, pantheon, settings) -> None:
-    star = pantheon["fallen_star"]
+    star = pantheon["xingtian"]
     for i in range(3):
         side_quest = side_quests.create_side_quest(
             db, title=f"Trial {i}", constellation=star, difficulty=QuestDifficulty.B,
@@ -171,7 +221,7 @@ def test_clearing_trials_raises_standing(db, hunter, pantheon, settings) -> None
 
 
 def test_abandoning_a_trial_lowers_standing(db, hunter, pantheon, settings) -> None:
-    star = pantheon["fallen_star"]
+    star = pantheon["xingtian"]
     issue(db, star, difficulty=QuestDifficulty.A)
     offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, offer, now=NOW)
@@ -186,33 +236,33 @@ def test_abandoning_a_trial_lowers_standing(db, hunter, pantheon, settings) -> N
 def test_standing_never_touches_exp(db, hunter, pantheon, settings) -> None:
     """A constellation's opinion is a story value. It cannot take anything."""
     hunter.exp = 300
-    issue(db, pantheon["fallen_star"], difficulty=QuestDifficulty.S, penalty_exp=0)
+    issue(db, pantheon["xingtian"], difficulty=QuestDifficulty.S, penalty_exp=0)
     offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, offer, now=NOW)
 
     side_quests.sweep_offers(db, hunter, settings, now=AFTER)
 
-    assert constellations.get_favor(db, hunter, pantheon["fallen_star"]).favor < 0
+    assert constellations.get_favor(db, hunter, pantheon["xingtian"]).favor < 0
     assert hunter.exp == 300
     assert hunter.level == 1
 
 
 def test_each_constellation_keeps_its_own_regard(db, hunter, pantheon, settings) -> None:
-    issue(db, pantheon["fallen_star"], title="Star's trial")
+    issue(db, pantheon["xingtian"], title="Star's trial")
     star_offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, star_offer, now=NOW)
     side_quests.complete_offer(db, hunter, star_offer, settings, now=NOW)
 
-    issue(db, pantheon["long_road"], title="Road's trial")
+    issue(db, pantheon["hermes"], title="Road's trial")
     road_offer = side_quests.list_offers(db, hunter)[0]
     side_quests.decline_offer(db, hunter, road_offer, settings, now=NOW)
 
-    assert constellations.get_favor(db, hunter, pantheon["fallen_star"]).favor > 0
-    assert constellations.get_favor(db, hunter, pantheon["long_road"]).favor < 0
+    assert constellations.get_favor(db, hunter, pantheon["xingtian"]).favor > 0
+    assert constellations.get_favor(db, hunter, pantheon["hermes"]).favor < 0
 
 
 def test_a_withdrawn_trial_is_not_held_against_you(db, hunter, pantheon, settings) -> None:
-    star = pantheon["fallen_star"]
+    star = pantheon["xingtian"]
     side_quest = issue(db, star)
     offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, offer, now=NOW)
@@ -229,7 +279,7 @@ def test_a_withdrawn_trial_is_not_held_against_you(db, hunter, pantheon, setting
 
 def test_a_reserved_trial_skips_a_stranger(db, hunter, pantheon) -> None:
     side_quest = side_quests.create_side_quest(
-        db, title="For those who have earned it", constellation=pantheon["fallen_star"],
+        db, title="For those who have earned it", constellation=pantheon["xingtian"],
         min_standing=Standing.FAVORED, expires_at=DEADLINE, now=NOW,
     )
 
@@ -240,7 +290,7 @@ def test_a_reserved_trial_skips_a_stranger(db, hunter, pantheon) -> None:
 
 
 def test_a_reserved_trial_reaches_someone_who_earned_it(db, hunter, pantheon) -> None:
-    star = pantheon["fallen_star"]
+    star = pantheon["xingtian"]
     favor = constellations.ensure_favor(db, hunter, star)
     favor.favor = 40  # FAVORED
 
@@ -255,7 +305,7 @@ def test_a_reserved_trial_reaches_someone_who_earned_it(db, hunter, pantheon) ->
 
 def test_the_voice_changes_with_standing(db, hunter, pantheon, settings) -> None:
     """The same constellation should not greet a champion like a stranger."""
-    star = pantheon["fallen_star"]
+    star = pantheon["xingtian"]
     stranger_line = constellations.line_for(
         side_quests.create_side_quest(db, title="A", constellation=star, now=NOW),
         star, story.OFFER, Standing.STRANGER,
@@ -269,7 +319,7 @@ def test_the_voice_changes_with_standing(db, hunter, pantheon, settings) -> None
 
 
 def test_the_feed_carries_the_voice_and_the_facts(db, hunter, pantheon) -> None:
-    issue(db, pantheon["sleepless_lantern"], title="Come back once more")
+    issue(db, pantheon["amaterasu"], title="Come back once more")
     db.flush()
 
     event = (
@@ -277,15 +327,15 @@ def test_the_feed_carries_the_voice_and_the_facts(db, hunter, pantheon) -> None:
         .filter_by(player_id=hunter.id, event_type=EventType.SIDE_QUEST_OFFERED)
         .one()
     )
-    assert event.message.startswith("The Sleepless Lantern: ")
-    assert event.payload["constellation"] == "sleepless_lantern"
+    assert event.message.startswith("The Door Opened Again: ")
+    assert event.payload["constellation"] == "amaterasu"
     assert event.payload["standing"] == "stranger"
     assert event.payload["title"] == "Come back once more"
 
 
 def test_a_completion_reports_how_regard_moved(db, hunter, pantheon, settings) -> None:
     """Clearing an S-rank is enough to move a stranger up a band in one go."""
-    issue(db, pantheon["silent_library"], difficulty=QuestDifficulty.S)
+    issue(db, pantheon["michizane"], difficulty=QuestDifficulty.S)
     offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, offer, now=NOW)
     side_quests.complete_offer(db, hunter, offer, settings, now=NOW)
@@ -333,10 +383,10 @@ def test_the_scheduler_starts_at_the_top_of_the_catalog(db, pantheon) -> None:
 
 def test_a_scheduled_trial_carries_its_constellation_and_window(db, pantheon) -> None:
     scheduled = broadcasting.schedule(
-        db, broadcasting.entry_by_code("empty_bowl.eight_glasses"), at=NOW, now=NOW
+        db, broadcasting.entry_by_code("yan_hui.eight_glasses"), at=NOW, now=NOW
     )
 
-    assert scheduled.side_quest.constellation.code == "empty_bowl"
+    assert scheduled.side_quest.constellation.code == "yan_hui"
     assert scheduled.side_quest.expires_at == NOW + timedelta(hours=24)
 
 
@@ -415,12 +465,12 @@ def test_one_constellation_by_code(auth_client, db) -> None:
     constellations.seed_pantheon(db)
     db.commit()
 
-    body = auth_client.get("/constellations/empty_bowl").json()
+    body = auth_client.get("/constellations/yan_hui").json()
 
-    assert body["code_name"] == "The Empty Bowl"
-    assert body["code_name_zh_hant"] == "「空缽」"
-    assert body["real_name"] == "Shi Zhi-zu"
-    assert body["real_name_zh_hant"] == "釋知足"
+    assert body["code_name"] == "One Basket, One Gourd"
+    assert body["code_name_zh_hant"] == "「一簞一瓢」"
+    assert body["real_name"] == "Yan Hui"
+    assert body["real_name_zh_hant"] == "顏回"
     assert body["domain"] == "vitality"
 
 
@@ -449,18 +499,18 @@ def test_names_are_distinct_across_the_pantheon(db) -> None:
 def test_a_renamed_constellation_keeps_its_history(db, hunter) -> None:
     """The code is the identity; the names are content, and content changes."""
     constellations.seed_pantheon(db)
-    star = constellations.get_by_code(db, "fallen_star")
+    star = constellations.get_by_code(db, "xingtian")
     befriend(db, hunter, star, when=NOW)
 
     entries = tuple(
-        type(entry)(**{**entry.__dict__, "real_name_zh_hant": "岳無咎"})
-        if entry.code == "fallen_star"
+        type(entry)(**{**entry.__dict__, "real_name_zh_hant": "刑天氏"})
+        if entry.code == "xingtian"
         else entry
         for entry in PANTHEON
     )
     constellations.seed_pantheon(db, entries)
 
-    assert star.real_name_zh_hant == "岳無咎"
+    assert star.real_name_zh_hant == "刑天氏"
     assert constellations.get_favor(db, hunter, star).is_friend is True
 
 

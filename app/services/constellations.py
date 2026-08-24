@@ -38,6 +38,7 @@ class SeedResult:
 
     created: list[str]
     updated: list[str]
+    retired: list[str]
 
     @property
     def created_count(self) -> int:
@@ -47,6 +48,10 @@ class SeedResult:
     def updated_count(self) -> int:
         return len(self.updated)
 
+    @property
+    def retired_count(self) -> int:
+        return len(self.retired)
+
 
 def seed_pantheon(
     db: Session, entries: tuple[ConstellationEntry, ...] = PANTHEON
@@ -54,11 +59,16 @@ def seed_pantheon(
     """Load the written pantheon into the database, idempotently.
 
     Matched on `code`, so rewriting a constellation's name or voice updates
-    the row in place and leaves every favor record pointing at the same
-    character. Nothing is deleted: a constellation dropped from the catalog
-    keeps its history, and is retired by hand.
+    the row in place and leaves every favor record and every friendship
+    pointing at the same character.
+
+    A constellation that has left the catalog is **retired**, not deleted: it
+    stops issuing and stops being offered, and every row that refers to it —
+    favor, friendships, the side quests it already sent — is left intact. That
+    is what makes replacing the cast safe; a player who cleared something last
+    month still has the history of having cleared it.
     """
-    result = SeedResult(created=[], updated=[])
+    result = SeedResult(created=[], updated=[], retired=[])
 
     for entry in entries:
         existing = db.scalar(
@@ -80,6 +90,16 @@ def seed_pantheon(
                 setattr(existing, field, value)
             existing.voice = voice
             result.updated.append(entry.code)
+
+        if not existing.is_active:
+            # Back in the catalog after a spell away.
+            existing.is_active = True
+
+    written_codes = {entry.code for entry in entries}
+    for constellation in db.scalars(select(Constellation)).all():
+        if constellation.code not in written_codes and constellation.is_active:
+            constellation.is_active = False
+            result.retired.append(constellation.code)
 
     db.flush()
     return result

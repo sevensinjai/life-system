@@ -11,7 +11,7 @@ class ConstellationBrief(BaseModel):
 
     Both names, in both scripts, because which to show is the client's call —
     including showing both at once, which is how these are usually written:
-    「墜星」 The Fallen Star.
+    「猛志常在」 The Will That Remains.
     """
 
     model_config = ConfigDict(from_attributes=True)

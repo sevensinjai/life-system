@@ -49,7 +49,7 @@ def hunter(db) -> Player:
 @pytest.fixture
 def star(db):
     constellations.seed_pantheon(db)
-    return constellations.get_by_code(db, "fallen_star")
+    return constellations.get_by_code(db, "xingtian")
 
 
 def ask(db, hunter, star, settings, *, arbiter=hears, now=NOW, message=None):
@@ -85,7 +85,7 @@ def test_being_heard_sets_a_trial(db, hunter, star, settings) -> None:
     assert request.status is FriendshipStatus.CHALLENGED
     offer = side_quests.get_offer(db, hunter, request.challenge_offer_id)
     assert offer.side_quest.is_challenge is True
-    assert offer.side_quest.catalog_code == CHALLENGES["fallen_star"].code
+    assert offer.side_quest.catalog_code == CHALLENGES["xingtian"].code
 
 
 def test_the_trial_is_not_yet_friendship(db, hunter, star, settings) -> None:
@@ -234,7 +234,7 @@ def test_asking_a_friend_is_refused(db, hunter, star, settings) -> None:
 def test_the_wait_is_per_constellation(db, hunter, star, settings) -> None:
     """Being turned away by one says nothing about the others."""
     ask(db, hunter, star, settings, arbiter=deaf)
-    road = constellations.get_by_code(db, "long_road")
+    road = constellations.get_by_code(db, "hermes")
 
     request = friendship.request_friendship(
         db, hunter, road, settings, arbiter=hears, now=NOW
@@ -444,7 +444,7 @@ def test_a_refusal_is_spoken_in_the_constellations_voice(
         .filter_by(player_id=hunter.id, event_type=EventType.FRIENDSHIP_REFUSED)
         .one()
     )
-    assert event.message.startswith("The Fallen Star: ")
+    assert event.message.startswith("The Will That Remains: ")
     assert event.payload["retry_after"] is not None
 
 
@@ -458,7 +458,7 @@ def test_being_befriended_is_announced(db, hunter, star, settings) -> None:
         .filter_by(player_id=hunter.id, event_type=EventType.FRIENDSHIP_FORMED)
         .one()
     )
-    assert "one of mine" in event.message
+    assert "of my company" in event.message
 
 
 def test_a_farewell_is_spoken(db, hunter, star, settings) -> None:
@@ -472,7 +472,7 @@ def test_a_farewell_is_spoken(db, hunter, star, settings) -> None:
         .filter_by(player_id=hunter.id, event_type=EventType.FRIENDSHIP_ENDED)
         .one()
     )
-    assert event.payload["constellation"] == "fallen_star"
+    assert event.payload["constellation"] == "xingtian"
 
 
 # --------------------------------------------------------------------------
