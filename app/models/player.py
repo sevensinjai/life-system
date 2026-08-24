@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.models.event import SystemEvent
     from app.models.quest import Penalty, Quest
     from app.models.quote import Quote
+    from app.models.skill import Skill
     from app.models.user import User
 
 
@@ -50,6 +51,9 @@ class Player(Base):
         back_populates="player", cascade="all, delete-orphan"
     )
     quotes: Mapped[list["Quote"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    skills: Mapped[list["Skill"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
     penalties: Mapped[list["Penalty"]] = relationship(

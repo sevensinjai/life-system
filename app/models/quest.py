@@ -69,6 +69,14 @@ class Quest(Base):
     )
     stat_reward_amount: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Clearing the quest trains this skill. Null keeps the quest purely about
+    # player EXP. SET NULL rather than CASCADE: deleting a skill should not
+    # take the quests that referenced it with it.
+    skill_id: Mapped[int | None] = mapped_column(
+        ForeignKey("skills.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    skill_exp_reward: Mapped[int] = mapped_column(Integer, default=0)
+
     # Archived quests stop spawning instances but keep their history.
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 

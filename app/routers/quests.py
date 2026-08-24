@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.deps import CurrentPlayer, DbDep, SettingsDep
 from app.errors import ValidationError
 from app.models import Player, Quest, QuestInstance, QuestStatus, ScheduleKind
+from app.schemas.skill import SkillAwardResponse
 from app.schemas.quest import (
     ProgressRequest,
     QuestActionResponse,
@@ -29,6 +30,7 @@ from app.services.quests import (
     get_quest,
     list_quests,
     next_due_date,
+    resolve_skill_reward,
     schedule_of,
 )
 
@@ -67,6 +69,8 @@ def _build_response(
         exp_reward=quest.exp_reward,
         stat_reward=quest.stat_reward,
         stat_reward_amount=quest.stat_reward_amount,
+        skill_id=quest.skill_id,
+        skill_exp_reward=quest.skill_exp_reward,
         is_active=quest.is_active,
         created_at=quest.created_at,
         current_instance=(
@@ -119,6 +123,8 @@ def create(payload: QuestCreate, player: CurrentPlayer, db: DbDep) -> QuestRespo
         exp_reward=payload.exp_reward,
         stat_reward=payload.stat_reward,
         stat_reward_amount=payload.stat_reward_amount,
+        skill_id=payload.skill_id,
+        skill_exp_reward=payload.skill_exp_reward,
     )
     db.commit()
     return _to_response(db, quest, player)
@@ -206,6 +212,20 @@ def update(
     fields = payload.model_dump(exclude_unset=True)
     schedule_spec = fields.pop("schedule", None)
 
+    # The skill link is settled together: an amount is only meaningful
+    # alongside the skill it pays, and either may be the one being changed.
+    if "skill_id" in fields or "skill_exp_reward" in fields:
+        skill_id = fields.pop("skill_id", quest.skill_id)
+        given = fields.pop("skill_exp_reward", None)
+        quest.skill_id = skill_id
+        quest.skill_exp_reward = resolve_skill_reward(
+            db,
+            player,
+            skill_id,
+            given if given is not None else (quest.skill_exp_reward or None),
+            payload.exp_reward if payload.exp_reward is not None else quest.exp_reward,
+        )
+
     for field, value in fields.items():
         setattr(quest, field, value)
 
@@ -272,7 +292,7 @@ def progress(
     exp_before = player.total_exp_earned
     level_before = player.level
 
-    instance, completed = add_progress(
+    instance, completed, skill_awards = add_progress(
         db, player, quest, instance, payload.amount, settings
     )
     db.commit()
@@ -283,6 +303,7 @@ def progress(
         completed=completed,
         exp_gained=player.total_exp_earned - exp_before,
         leveled_up=player.level > level_before,
+        skill_awards=SkillAwardResponse.from_awards(skill_awards),
     )
 
 
@@ -301,7 +322,7 @@ def complete(
     exp_before = player.total_exp_earned
     level_before = player.level
 
-    complete_instance(db, player, quest, instance, settings)
+    _, skill_awards = complete_instance(db, player, quest, instance, settings)
     db.commit()
 
     return QuestActionResponse(
@@ -310,4 +331,5 @@ def complete(
         completed=True,
         exp_gained=player.total_exp_earned - exp_before,
         leveled_up=player.level > level_before,
+        skill_awards=SkillAwardResponse.from_awards(skill_awards),
     )

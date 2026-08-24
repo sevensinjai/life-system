@@ -18,9 +18,10 @@ from app.models import (
     ScheduleKind,
     StatName,
 )
-from app.services import clock, scheduling
+from app.services import clock, scheduling, skills
 from app.services.progression import award_exp, log_event
 from app.services.scheduling import Period, Schedule, ScheduleError
+from app.services.skills import SkillAward
 
 
 def default_exp_for(difficulty: QuestDifficulty) -> int:
@@ -60,6 +61,31 @@ def build_schedule(
         raise ValidationError(str(exc)) from exc
 
 
+def resolve_skill_reward(
+    db: Session,
+    player: Player,
+    skill_id: int | None,
+    skill_exp_reward: int | None,
+    exp_reward: int,
+) -> int:
+    """Validate a quest's skill link and settle how much EXP it pays the skill.
+
+    Naming a skill without an amount means "worth the same to the skill as it
+    is to me", which is the reading that needs no extra thought when authoring.
+    Verifying ownership here is what stops a quest from pointing at someone
+    else's skill.
+    """
+    if skill_id is None:
+        return 0
+
+    skills.get_skill(db, player, skill_id)  # 404s if it is not the player's
+    if skill_exp_reward is not None:
+        if skill_exp_reward < 0:
+            raise ValidationError("skill_exp_reward must be non-negative.")
+        return skill_exp_reward
+    return exp_reward
+
+
 def create_quest(
     db: Session,
     player: Player,
@@ -73,6 +99,8 @@ def create_quest(
     exp_reward: int | None = None,
     stat_reward: StatName | None = None,
     stat_reward_amount: int = 0,
+    skill_id: int | None = None,
+    skill_exp_reward: int | None = None,
     today: date | None = None,
 ) -> Quest:
     """Author a quest and open its first period.
@@ -84,6 +112,11 @@ def create_quest(
         raise ValidationError("target_count must be at least 1.")
     if stat_reward_amount < 0:
         raise ValidationError("stat_reward_amount must be non-negative.")
+
+    exp_reward = exp_reward if exp_reward is not None else default_exp_for(difficulty)
+    skill_exp_reward = resolve_skill_reward(
+        db, player, skill_id, skill_exp_reward, exp_reward
+    )
 
     today = today or clock.local_date(player.timezone)
     schedule = schedule or Schedule(kind=ScheduleKind.ONCE, anchor=today)
@@ -111,9 +144,11 @@ def create_quest(
         difficulty=difficulty,
         target_count=target_count,
         unit=unit,
-        exp_reward=exp_reward if exp_reward is not None else default_exp_for(difficulty),
+        exp_reward=exp_reward,
         stat_reward=stat_reward,
         stat_reward_amount=stat_reward_amount,
+        skill_id=skill_id,
+        skill_exp_reward=skill_exp_reward,
     )
     db.add(quest)
     db.flush()  # assign quest.id before building its instance
@@ -238,10 +273,11 @@ def add_progress(
     instance: QuestInstance,
     amount: int,
     settings: Settings,
-) -> tuple[QuestInstance, bool]:
+) -> tuple[QuestInstance, bool, list[SkillAward]]:
     """Record progress, completing the instance if it reaches its target.
 
-    Returns the instance and whether this call completed it.
+    Returns the instance, whether this call completed it, and any skill EXP
+    the completion paid out.
     """
     if amount == 0:
         raise ValidationError("Progress amount must not be zero.")
@@ -266,10 +302,10 @@ def add_progress(
     )
 
     if instance.is_cleared:
-        complete_instance(db, player, quest, instance, settings)
-        return instance, True
+        _, awards = complete_instance(db, player, quest, instance, settings)
+        return instance, True, awards
 
-    return instance, False
+    return instance, False, []
 
 
 def complete_instance(
@@ -278,8 +314,12 @@ def complete_instance(
     quest: Quest,
     instance: QuestInstance,
     settings: Settings,
-) -> QuestInstance:
-    """Clear an instance and pay out its rewards."""
+) -> tuple[QuestInstance, list[SkillAward]]:
+    """Clear an instance and pay out its rewards.
+
+    Returns the instance and the skill awards, which are what the client
+    animates alongside the player's own level-up.
+    """
     if instance.status is QuestStatus.COMPLETED:
         raise ValidationError("Quest instance is already completed.")
     if instance.status is QuestStatus.FAILED:
@@ -295,6 +335,7 @@ def complete_instance(
     result = award_exp(
         db, player, quest.exp_reward, settings, source=f"quest:{quest.id}"
     )
+    skill_awards = skills.award_for_quest(db, player, quest, settings)
 
     log_event(
         db,
@@ -308,6 +349,8 @@ def complete_instance(
             "stat_reward": quest.stat_reward.value if quest.stat_reward else None,
             "stat_reward_amount": quest.stat_reward_amount,
             "leveled_up": result.leveled_up,
+            "skill_id": quest.skill_id,
+            "skill_exp_gained": skill_awards[0].exp_gained if skill_awards else 0,
         },
     )
 
@@ -315,4 +358,4 @@ def complete_instance(
     if quest.schedule is ScheduleKind.ONCE:
         quest.is_active = False
 
-    return instance
+    return instance, skill_awards

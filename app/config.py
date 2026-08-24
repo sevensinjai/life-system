@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     stat_points_per_level: int = 3
     penalty_exp_multiplier: float = 1.0
 
+    # Skills level on the same curve shape as the player, tuned separately.
+    skill_exp_curve_base: int = 100
+    skill_exp_curve_exponent: float = 1.5
+    # Share of a skill's EXP that reaches its parent, compounding per level of
+    # depth: 1.0 credits a branch in full, 0.5 halves it at each step up.
+    skill_exp_rollup: float = 1.0
+    max_skill_depth: int = 5
+
     @model_validator(mode="after")
     def _check_jwt_secret(self) -> "Settings":
         """Refuse to start production with a weak or default signing key."""

@@ -12,6 +12,7 @@ from app.models.event import SystemEvent
 from app.models.player import Player
 from app.models.quest import Penalty, Quest, QuestInstance
 from app.models.quote import Quote
+from app.models.skill import Skill
 from app.models.user import User
 
 __all__ = [
@@ -25,6 +26,7 @@ __all__ = [
     "QuestStatus",
     "Quote",
     "ScheduleKind",
+    "Skill",
     "StatName",
     "SystemEvent",
     "User",
