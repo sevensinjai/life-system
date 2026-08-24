@@ -136,10 +136,16 @@ def accept(offer_id: int, player: CurrentPlayer, db: DbDep) -> SideQuestOffer:
     response_model=SideQuestOfferResponse,
     summary="Decline a side quest",
 )
-def decline(offer_id: int, player: CurrentPlayer, db: DbDep) -> SideQuestOffer:
-    """Pass on the quest. It costs nothing, now or later."""
+def decline(
+    offer_id: int, player: CurrentPlayer, db: DbDep, settings: SettingsDep
+) -> SideQuestOffer:
+    """Pass on the quest. It costs nothing, now or later.
+
+    Declining a trial of admission withdraws that request to be befriended,
+    and starts the same wait a refusal does.
+    """
     offer = side_quests.get_offer(db, player, offer_id)
-    side_quests.decline_offer(db, player, offer)
+    side_quests.decline_offer(db, player, offer, settings)
     db.commit()
     return offer
 

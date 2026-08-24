@@ -17,6 +17,7 @@ from app.models import (
 from app.security import hash_password
 from app.services import constellations, side_quests
 from app.services.daily import run_daily_reset
+from tests.conftest import befriend
 
 NOW = datetime(2026, 8, 24, 12, tzinfo=UTC)
 DEADLINE = NOW + timedelta(days=2)
@@ -36,10 +37,16 @@ def hunter(db) -> Player:
 
 
 @pytest.fixture
-def fallen_star(db):
-    """The pantheon, seeded, and the constellation these trials come from."""
+def fallen_star(db, hunter):
+    """The pantheon, seeded, with the player already a friend of this one.
+
+    A constellation issues to its friends and nobody else, so a test about
+    what happens *after* a trial arrives has to start from friendship.
+    """
     constellations.seed_pantheon(db)
-    return constellations.get_by_code(db, "fallen_star")
+    star = constellations.get_by_code(db, "fallen_star")
+    befriend(db, hunter, star, when=NOW)
+    return star
 
 
 @pytest.fixture
@@ -102,8 +109,10 @@ def test_progress_before_accepting_is_refused(db, hunter, offer, settings) -> No
         side_quests.add_progress(db, hunter, offer, 1, settings, now=NOW)
 
 
-def test_a_declined_side_quest_cannot_be_accepted_later(db, hunter, offer) -> None:
-    side_quests.decline_offer(db, hunter, offer, now=NOW)
+def test_a_declined_side_quest_cannot_be_accepted_later(
+    db, hunter, offer, settings
+) -> None:
+    side_quests.decline_offer(db, hunter, offer, settings, now=NOW)
 
     with pytest.raises(ValidationError, match="declined"):
         side_quests.accept_offer(db, hunter, offer, now=NOW)

@@ -41,7 +41,7 @@ from app.models import (
     Standing,
     StatName,
 )
-from app.services import clock, constellations, story
+from app.services import clock, constellations, friendship, story
 from app.services.progression import apply_exp_penalty, award_exp, log_event
 
 # The trailing window a frequency cap is measured over.
@@ -147,12 +147,18 @@ def offers_in_window(
 
     Counts offers made, not offers accepted: declining a side quest still uses
     up a slot, because the interruption is what the player agreed to ration.
+
+    Trials of admission are left out for that same reason — the player asked
+    for that one, so it is not an interruption and must not eat their week.
     """
     since = now - timedelta(days=days)
     return db.scalar(
-        select(func.count(SideQuestOffer.id)).where(
+        select(func.count(SideQuestOffer.id))
+        .join(SideQuest, SideQuest.id == SideQuestOffer.side_quest_id)
+        .where(
             SideQuestOffer.player_id == player.id,
             SideQuestOffer.offered_at > since,
+            SideQuest.is_challenge.is_(False),
         )
     ) or 0
 
@@ -172,6 +178,12 @@ def skip_reason(
     """
     if not preference.is_opted_in:
         return "opted_out"
+
+    # A constellation issues to its friends and to nobody else. The way in is
+    # its trial of admission, which is handed over directly and never passes
+    # through here.
+    if not friendship.is_friend(db, player, side_quest.constellation):
+        return "not_a_friend"
 
     if (
         preference.max_difficulty is not None
@@ -232,6 +244,7 @@ def create_side_quest(
     min_level: int = 1,
     max_level: int | None = None,
     min_standing: Standing | None = None,
+    is_challenge: bool = False,
     draft: bool = False,
     now: datetime | None = None,
 ) -> SideQuest:
@@ -240,6 +253,11 @@ def create_side_quest(
     Queued rather than sent, so authoring and announcing stay separate steps.
     `draft=True` parks it further back still: a draft is never picked up by
     `dispatch_due`, which is what lets the story layer write ahead.
+
+    `is_challenge=True` marks a trial of admission — addressed to the one
+    player who asked for it. It is created already BROADCAST, because there is
+    nobody else to send it to, and every path that reaches all players skips
+    it.
     """
     now = now or clock.utcnow()
     title = title.strip()
@@ -280,12 +298,19 @@ def create_side_quest(
         stat_reward=stat_reward,
         stat_reward_amount=stat_reward_amount,
         penalty_exp=penalty_exp,
-        status=SideQuestStatus.DRAFT if draft else SideQuestStatus.SCHEDULED,
+        status=(
+            SideQuestStatus.DRAFT
+            if draft
+            else SideQuestStatus.BROADCAST
+            if is_challenge
+            else SideQuestStatus.SCHEDULED
+        ),
         broadcast_at=broadcast_at,
         expires_at=expires_at,
         min_level=min_level,
         max_level=max_level,
         min_standing=min_standing,
+        is_challenge=is_challenge,
     )
     db.add(side_quest)
     db.flush()
@@ -321,6 +346,11 @@ def broadcast(
     """
     now = now or clock.utcnow()
 
+    if side_quest.is_challenge:
+        raise ValidationError(
+            "This is a trial of admission, set for one player; "
+            "it cannot be broadcast."
+        )
     if side_quest.status is SideQuestStatus.CANCELLED:
         raise ValidationError("This side quest was cancelled; it cannot be broadcast.")
     if side_quest.status is SideQuestStatus.CLOSED:
@@ -360,6 +390,7 @@ def dispatch_due(db: Session, *, now: datetime | None = None) -> list[BroadcastR
         .where(
             SideQuest.status == SideQuestStatus.SCHEDULED,
             SideQuest.broadcast_at <= now,
+            SideQuest.is_challenge.is_(False),
         )
         .order_by(SideQuest.broadcast_at, SideQuest.id)
     ).all()
@@ -392,6 +423,8 @@ def catch_up(
         .where(
             SideQuest.status == SideQuestStatus.BROADCAST,
             (SideQuest.expires_at.is_(None)) | (SideQuest.expires_at > now),
+            # Someone else's trial of admission is not an open broadcast.
+            SideQuest.is_challenge.is_(False),
         )
         .order_by(SideQuest.broadcast_at, SideQuest.id)
     ).all()
@@ -509,7 +542,11 @@ def _favor_payload(change) -> dict:
 
 
 def cancel_side_quest(
-    db: Session, side_quest: SideQuest, *, now: datetime | None = None
+    db: Session,
+    side_quest: SideQuest,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
 ) -> int:
     """Call a broadcast off, voiding every offer still live.
 
@@ -531,6 +568,7 @@ def cancel_side_quest(
         offer.status = SideQuestOfferStatus.WITHDRAWN
         player = db.get(Player, offer.player_id)
         if player is not None:
+            friendship.settle_challenge(db, player, offer, settings, now=now)
             log_event(
                 db,
                 player,
@@ -616,9 +654,19 @@ def accept_offer(
 
 
 def decline_offer(
-    db: Session, player: Player, offer: SideQuestOffer, *, now: datetime | None = None
+    db: Session,
+    player: Player,
+    offer: SideQuestOffer,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
 ) -> SideQuestOffer:
-    """Pass on a side quest. Costs nothing, now or later."""
+    """Pass on a side quest. Costs nothing, now or later.
+
+    Declining a trial of admission is allowed too — it withdraws the request
+    and starts the wait, the same as failing it. Changing your mind about
+    asking is a thing people do.
+    """
     now = now or clock.utcnow()
 
     if offer.status is not SideQuestOfferStatus.OFFERED:
@@ -659,6 +707,8 @@ def decline_offer(
             **_favor_payload(change),
         },
     )
+
+    friendship.settle_challenge(db, player, offer, settings, now=now)
     return offer
 
 
@@ -786,6 +836,8 @@ def complete_offer(
             "leveled_up": result.leveled_up,
         },
     )
+
+    friendship.settle_challenge(db, player, offer, settings, now=now)
     return offer
 
 
@@ -879,6 +931,7 @@ def sweep_offers(
                     **_favor_payload(change),
                 },
             )
+            friendship.settle_challenge(db, player, offer, settings, now=now)
             continue
 
         offer.status = SideQuestOfferStatus.FAILED
@@ -906,6 +959,7 @@ def sweep_offers(
                 "target_count": offer.target_count,
             },
         )
+        friendship.settle_challenge(db, player, offer, settings, now=now)
 
         penalty_exp = side_quest.penalty_exp if side_quest else 0
         amount = round(penalty_exp * settings.penalty_exp_multiplier)

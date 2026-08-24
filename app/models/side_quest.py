@@ -88,6 +88,12 @@ class SideQuest(Base):
     # same way its voice is: {line kind: {standing or "default": [lines]}}.
     lines: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
+    # A trial of admission, set for one player who asked to be befriended. It
+    # is a side quest in every other respect — same offer, same progress, same
+    # settling — but it is addressed rather than broadcast, so every path that
+    # sends things to everybody has to leave it alone.
+    is_challenge: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
     difficulty: Mapped[QuestDifficulty] = mapped_column(
         Enum(QuestDifficulty, native_enum=False, length=2), default=QuestDifficulty.E
     )

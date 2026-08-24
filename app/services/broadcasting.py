@@ -160,6 +160,8 @@ def has_open_broadcast(db: Session, *, now: datetime | None = None) -> bool:
                 [SideQuestStatus.SCHEDULED, SideQuestStatus.BROADCAST]
             ),
             (SideQuest.expires_at.is_(None)) | (SideQuest.expires_at > now),
+            # One player's trial of admission is not the sky being busy.
+            SideQuest.is_challenge.is_(False),
         )
         .limit(1)
     )

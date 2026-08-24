@@ -1,9 +1,6 @@
 """Request and response models for side quests and the opt-in that gates them."""
 
-from datetime import datetime
-from typing import Annotated
-
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import (
     QuestDifficulty,
@@ -13,14 +10,8 @@ from app.models.enums import (
     Standing,
     StatName,
 )
+from app.schemas.common import UtcMoment
 from app.schemas.constellation import ConstellationBrief
-from app.services.clock import as_utc
-
-# Side quest windows are absolute instants, and a client that reads a deadline
-# as local time is wrong by hours. SQLite hands stored timestamps back without
-# a timezone, so every datetime leaving this module is stamped UTC on the way
-# out rather than trusting whatever the backend returned.
-UtcMoment = Annotated[datetime, AfterValidator(as_utc)]
 
 
 class SideQuestPreferenceUpdate(BaseModel):

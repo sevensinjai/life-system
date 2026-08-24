@@ -21,6 +21,7 @@ from app.models import (
 )
 from app.security import hash_password
 from app.services import broadcasting, constellations, side_quests, story
+from tests.conftest import befriend
 
 NOW = datetime(2026, 8, 24, 12, tzinfo=UTC)
 DEADLINE = NOW + timedelta(days=2)
@@ -40,9 +41,18 @@ def hunter(db) -> Player:
 
 
 @pytest.fixture
-def pantheon(db) -> dict[str, Constellation]:
+def pantheon(db, hunter) -> dict[str, Constellation]:
+    """The seeded pantheon, all of them already friends with the player.
+
+    A constellation reaches its friends and nobody else, so tests about what
+    it *sends* start from friendship; tests about getting in live in
+    tests/test_friendship.py.
+    """
     constellations.seed_pantheon(db)
-    return {c.code: c for c in constellations.list_constellations(db)}
+    found = {c.code: c for c in constellations.list_constellations(db)}
+    for constellation in found.values():
+        befriend(db, hunter, constellation, when=NOW)
+    return found
 
 
 def issue(db, constellation, *, difficulty=QuestDifficulty.C, **kwargs):
@@ -123,10 +133,14 @@ def test_no_written_trial_costs_more_than_it_pays() -> None:
 # --------------------------------------------------------------------------
 
 
-def test_two_who_have_never_met_leave_no_row(db, hunter, pantheon) -> None:
-    favor = constellations.get_favor(db, hunter, pantheon["long_road"])
+def test_two_who_have_never_met_leave_no_row(db, hunter) -> None:
+    constellations.seed_pantheon(db)
+    road = constellations.get_by_code(db, "long_road")
+
+    favor = constellations.get_favor(db, hunter, road)
 
     assert favor.favor == 0
+    assert favor.is_friend is False
     assert db.query(ConstellationFavor).count() == 0
 
 
@@ -191,19 +205,19 @@ def test_each_constellation_keeps_its_own_regard(db, hunter, pantheon, settings)
 
     issue(db, pantheon["long_road"], title="Road's trial")
     road_offer = side_quests.list_offers(db, hunter)[0]
-    side_quests.decline_offer(db, hunter, road_offer, now=NOW)
+    side_quests.decline_offer(db, hunter, road_offer, settings, now=NOW)
 
     assert constellations.get_favor(db, hunter, pantheon["fallen_star"]).favor > 0
     assert constellations.get_favor(db, hunter, pantheon["long_road"]).favor < 0
 
 
-def test_a_withdrawn_trial_is_not_held_against_you(db, hunter, pantheon) -> None:
+def test_a_withdrawn_trial_is_not_held_against_you(db, hunter, pantheon, settings) -> None:
     star = pantheon["fallen_star"]
     side_quest = issue(db, star)
     offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, offer, now=NOW)
 
-    side_quests.cancel_side_quest(db, side_quest, now=NOW)
+    side_quests.cancel_side_quest(db, side_quest, settings, now=NOW)
 
     assert constellations.get_favor(db, hunter, star).favor == 0
 

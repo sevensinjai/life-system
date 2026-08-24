@@ -1,6 +1,10 @@
 """ORM models. Importing this package registers every table on Base.metadata."""
 
-from app.models.constellation import Constellation, ConstellationFavor
+from app.models.constellation import (
+    Constellation,
+    ConstellationFavor,
+    FriendshipRequest,
+)
 from app.models.enums import (
     DIFFICULTY_EXP,
     MAX_FAVOR,
@@ -8,6 +12,7 @@ from app.models.enums import (
     SIDE_QUEST_OFFERS_PER_WEEK,
     STANDING_THRESHOLDS,
     EventType,
+    FriendshipStatus,
     QuestDifficulty,
     QuestStatus,
     ScheduleKind,
@@ -33,6 +38,8 @@ __all__ = [
     "Constellation",
     "ConstellationFavor",
     "EventType",
+    "FriendshipRequest",
+    "FriendshipStatus",
     "Penalty",
     "Player",
     "Quest",

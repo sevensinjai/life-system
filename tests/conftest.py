@@ -108,3 +108,19 @@ def player(auth_client, db):
 def at(year: int, month: int, day: int, hour: int = 12) -> datetime:
     """A fixed UTC instant, for tests that need a controlled clock."""
     return datetime(year, month, day, hour, tzinfo=UTC)
+
+
+def befriend(db, player, constellation, *, when: datetime | None = None):
+    """Put a player and a constellation on friendly terms directly.
+
+    The real way in is to ask and clear the trial of admission, which
+    tests/test_friendship.py covers end to end. Everything else only needs the
+    channel open, so it shortcuts to the state that opens it.
+    """
+    from app.services.constellations import ensure_favor
+
+    favor = ensure_favor(db, player, constellation)
+    favor.is_friend = True
+    favor.befriended_at = when or datetime(2026, 8, 24, 12, tzinfo=UTC)
+    db.flush()
+    return favor

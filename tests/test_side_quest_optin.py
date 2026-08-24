@@ -221,14 +221,14 @@ def test_the_cap_is_a_rolling_week_not_a_calendar_one(db, hunter) -> None:
     assert len(side_quests.list_offers(db, hunter)) == 2
 
 
-def test_declining_still_uses_a_slot(db, hunter) -> None:
+def test_declining_still_uses_a_slot(db, hunter, settings) -> None:
     """The interruption is what the player rationed, not the acceptance."""
     side_quests.set_preference(
         db, hunter, is_opted_in=True, frequency=SideQuestFrequency.RARE, now=NOW
     )
     broadcast_now(db, title="First", now=NOW)
     offer = side_quests.list_offers(db, hunter)[0]
-    side_quests.decline_offer(db, hunter, offer, now=NOW)
+    side_quests.decline_offer(db, hunter, offer, settings, now=NOW)
 
     broadcast_now(db, title="Second", now=NOW + timedelta(hours=2))
 
@@ -337,10 +337,10 @@ def test_a_broadcast_that_slept_through_its_window_is_closed_not_sent(db, hunter
     assert side_quests.list_offers(db, hunter) == []
 
 
-def test_a_cancelled_broadcast_cannot_go_out(db, hunter) -> None:
+def test_a_cancelled_broadcast_cannot_go_out(db, hunter, settings) -> None:
     side_quests.set_preference(db, hunter, is_opted_in=True, now=NOW)
     side_quest, _ = broadcast_now(db)
-    side_quests.cancel_side_quest(db, side_quest, now=NOW)
+    side_quests.cancel_side_quest(db, side_quest, settings, now=NOW)
 
     from app.errors import ValidationError
 
@@ -348,13 +348,13 @@ def test_a_cancelled_broadcast_cannot_go_out(db, hunter) -> None:
         side_quests.broadcast(db, side_quest, now=NOW)
 
 
-def test_cancelling_voids_live_offers_without_penalty(db, hunter) -> None:
+def test_cancelling_voids_live_offers_without_penalty(db, hunter, settings) -> None:
     side_quests.set_preference(db, hunter, is_opted_in=True, now=NOW)
     side_quest, _ = broadcast_now(db, penalty_exp=500)
     offer = side_quests.list_offers(db, hunter)[0]
     side_quests.accept_offer(db, hunter, offer, now=NOW)
 
-    voided = side_quests.cancel_side_quest(db, side_quest, now=NOW)
+    voided = side_quests.cancel_side_quest(db, side_quest, settings, now=NOW)
 
     assert voided == 1
     assert offer.status is SideQuestOfferStatus.WITHDRAWN

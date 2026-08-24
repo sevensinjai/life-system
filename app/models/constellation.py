@@ -9,7 +9,15 @@ string typed into each one.
 `ConstellationFavor` is the other half: what one constellation makes of one
 player. Clearing its quests raises favor, dropping them lowers it, and the
 band that favor falls into — the player's *standing* — decides how it talks to
-you and what it will send.
+you and what it will send. It also carries whether the two are *friends*,
+which is what opens the channel in the first place: a constellation issues
+trials to its friends and to nobody else.
+
+`FriendshipRequest` is how that channel gets opened. You ask; the
+constellation may decline to hear you, or set you a trial; clearing the trial
+makes you friends. Every request is kept, refusals included, because the
+history is the story of how you got in — and because an arbiter that actually
+reads the request, rather than rolling for it, will want that history.
 
 Standing never touches EXP, levels, or stats. A constellation can lose
 interest in you; it cannot punish you. Only a side quest you accepted and
@@ -35,11 +43,11 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
-from app.models.enums import StatName
+from app.models.enums import FriendshipStatus, StatName
 
 if TYPE_CHECKING:
     from app.models.player import Player
-    from app.models.side_quest import SideQuest
+    from app.models.side_quest import SideQuest, SideQuestOffer
 
 
 class Constellation(Base):
@@ -114,6 +122,24 @@ class ConstellationFavor(Base):
     # thresholds re-reads every player's standing instead of migrating it.
     favor: Mapped[int] = mapped_column(Integer, default=0)
 
+    # Whether this constellation issues to this player at all. False until a
+    # request is granted and its trial cleared; false again if either side
+    # walks away.
+    is_friend: Mapped[bool] = mapped_column(Boolean, default=False)
+    befriended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    unfriended_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # The earliest this player may ask this constellation again. Set by a
+    # refusal, by a failed trial of admission, and by walking away. It lives
+    # on the pair rather than on any one request because that is what it is
+    # about: these two, and how soon they may speak again.
+    may_ask_after: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     # The history behind the number, kept because a screen wants to say "three
     # cleared, one abandoned" rather than "favor 14".
     offers_received: Mapped[int] = mapped_column(Integer, default=0)
@@ -139,5 +165,67 @@ class ConstellationFavor(Base):
     def __repr__(self) -> str:
         return (
             f"<ConstellationFavor constellation_id={self.constellation_id} "
-            f"player_id={self.player_id} favor={self.favor}>"
+            f"player_id={self.player_id} favor={self.favor} "
+            f"friend={self.is_friend}>"
+        )
+
+
+class FriendshipRequest(Base):
+    """One attempt to befriend one constellation.
+
+    A log, kept whatever the outcome: a refusal is as much a part of the
+    record as an acceptance, and it is what a later arbiter reading the
+    history will want to see. The wait a refusal imposes is not here — that
+    belongs to the pair, on `ConstellationFavor.may_ask_after`.
+    """
+
+    __tablename__ = "friendship_requests"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    constellation_id: Mapped[int] = mapped_column(
+        ForeignKey("constellations.id", ondelete="CASCADE"), index=True
+    )
+    player_id: Mapped[int] = mapped_column(
+        ForeignKey("players.id", ondelete="CASCADE"), index=True
+    )
+
+    status: Mapped[FriendshipStatus] = mapped_column(
+        Enum(FriendshipStatus, native_enum=False, length=16),
+        default=FriendshipStatus.CHALLENGED,
+        index=True,
+    )
+
+    # What the player said for themselves, if anything. Nothing reads it yet;
+    # it is here because an arbiter that weighs a request rather than rolling
+    # for it needs something to weigh.
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Why it went the way it did, in words. A stock line today.
+    verdict_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # The trial that was set, if one was. A side quest like any other, which
+    # is why it is an offer rather than a shape of its own.
+    challenge_offer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("side_quest_offers.id", ondelete="SET NULL"), nullable=True
+    )
+
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+    # When the constellation answered the request, and when the trial it set
+    # was settled. The same instant for a refusal, which needs no trial.
+    decided_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    constellation: Mapped["Constellation"] = relationship()
+    player: Mapped["Player"] = relationship(back_populates="friendship_requests")
+    challenge_offer: Mapped["SideQuestOffer | None"] = relationship()
+
+    def __repr__(self) -> str:
+        return (
+            f"<FriendshipRequest constellation_id={self.constellation_id} "
+            f"player_id={self.player_id} status={self.status}>"
         )

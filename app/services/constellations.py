@@ -131,6 +131,8 @@ def default_favor(player: Player, constellation: Constellation) -> Constellation
         constellation_id=constellation.id,
         player_id=player.id,
         favor=0,
+        is_friend=False,
+        may_ask_after=None,
         offers_received=0,
         completed=0,
         declined=0,

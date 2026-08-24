@@ -9,7 +9,12 @@ A missing standing falls back to "default", and a missing kind falls back to
 the plain System lines at the bottom of this module, so a constellation only
 has to write the lines where it actually sounds different from the rest.
 
-Line kinds: offer, accept, decline, complete, fail, expire.
+Line kinds for a side quest: offer, accept, decline, complete, fail, expire.
+
+Line kinds for a request to be befriended: refuse (it would not hear you this
+time), befriend (you cleared its trial), rebuff (you did not), farewell (you
+ended it). The trial it sets speaks through its own lines, in
+`content/challenges.py`.
 
 Interpolation is deliberately absent — a line is a finished sentence, not a
 template. Anything the client needs to say alongside it (counts, deadlines,
@@ -44,6 +49,10 @@ SYSTEM_VOICE: dict[str, dict[str, list[str]]] = {
     "complete": {"default": ["Side quest complete."]},
     "fail": {"default": ["Side quest failed."]},
     "expire": {"default": ["The side quest passed you by."]},
+    "refuse": {"default": ["Your request was not heard this time."]},
+    "befriend": {"default": ["Your request was granted."]},
+    "rebuff": {"default": ["The trial went unfinished. The request is closed."]},
+    "farewell": {"default": ["The friendship has ended."]},
 }
 
 
@@ -76,6 +85,13 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             },
             "fail": {"default": ["You stopped. I saw where."]},
             "expire": {"default": ["You did not answer. That is an answer."]},
+            "refuse": {
+                "default": ["Not today. Ask me again when you have done something."],
+                "slighted": ["No."],
+            },
+            "befriend": {"default": ["You are one of mine now. Do not make me regret it."]},
+            "rebuff": {"default": ["You asked, and then you stopped. That is the answer."]},
+            "farewell": {"default": ["Go, then. Get up wherever you land."]},
         },
     ),
     ConstellationEntry(
@@ -101,6 +117,10 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             },
             "fail": {"default": ["You sat down. Everyone sits down. Get up when you can."]},
             "expire": {"default": ["The road went on without you."]},
+            "refuse": {"default": ["Not yet. The road is not going anywhere."]},
+            "befriend": {"default": ["Then we walk together. Keep up."]},
+            "rebuff": {"default": ["You turned back at the first mile. It happens."]},
+            "farewell": {"default": ["Safe travels. You know where the road is."]},
         },
     ),
     ConstellationEntry(
@@ -123,6 +143,10 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             "complete": {"default": ["You wanted it and did not take it. That is the whole trial."]},
             "fail": {"default": ["You took it. There is no scolding here; only the taking."]},
             "expire": {"default": ["The bowl was there all week."]},
+            "refuse": {"default": ["Ask again when you want it less."]},
+            "befriend": {"default": ["Sit down. There is nothing to eat here."]},
+            "rebuff": {"default": ["You wanted it more than you wanted this."]},
+            "farewell": {"default": ["The bowl stays empty. It was never for you alone."]},
         },
     ),
     ConstellationEntry(
@@ -148,6 +172,10 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             },
             "fail": {"default": ["Unfinished. The worst kind of book."]},
             "expire": {"default": ["Unopened."]},
+            "refuse": {"default": ["Not now. I am reading."]},
+            "befriend": {"default": ["Accepted. Speak quietly."]},
+            "rebuff": {"default": ["Withdrawn. Ten pages was not much to ask."]},
+            "farewell": {"default": ["Return the book on your way out."]},
         },
     ),
     ConstellationEntry(
@@ -170,6 +198,10 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             "complete": {"default": ["You saw it. Most never do."]},
             "fail": {"default": ["You looked away again."]},
             "expire": {"default": ["It was in front of you the whole time."]},
+            "refuse": {"default": ["I have seen you. That is not the same as choosing you."]},
+            "befriend": {"default": ["I am watching you now. On purpose."]},
+            "rebuff": {"default": ["You looked away before I had finished looking."]},
+            "farewell": {"default": ["I will stop watching. I will still see."]},
         },
     ),
     ConstellationEntry(
@@ -196,6 +228,10 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
             },
             "fail": {"default": ["You did not come back this time. The light is still on."]},
             "expire": {"default": ["I waited up. It is fine. I always do."]},
+            "refuse": {"default": ["Come back tomorrow and ask me again. I will be up."]},
+            "befriend": {"default": ["Then the light is for you as well."]},
+            "rebuff": {"default": ["You did not come back. The light stays on anyway."]},
+            "farewell": {"default": ["The light stays on. It is not conditional."]},
         },
     ),
 )

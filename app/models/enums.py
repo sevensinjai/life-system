@@ -78,6 +78,22 @@ class SideQuestOfferStatus(StrEnum):
     WITHDRAWN = "withdrawn"  # the broadcast itself was cancelled
 
 
+class FriendshipStatus(StrEnum):
+    """Where one request to befriend a constellation ended up.
+
+    A constellation is asked, not joined. It may decline to hear you at all,
+    and if it does hear you it sets a trial first — so a request has two
+    places it can end, and both of them start the same cooling-off period
+    before you may ask again.
+    """
+
+    CHALLENGED = "challenged"  # it set you a trial; the answer is still open
+    ACCEPTED = "accepted"      # you cleared the trial; you are friends
+    REFUSED = "refused"        # it would not hear you this time
+    FAILED = "failed"          # it heard you, and you did not clear the trial
+    WITHDRAWN = "withdrawn"    # the trial was called off; no fault of yours
+
+
 class Standing(StrEnum):
     """Where a player sits in one constellation's regard.
 
@@ -134,6 +150,10 @@ class EventType(StrEnum):
     SIDE_QUEST_FAILED = "side_quest_failed"
     SIDE_QUEST_EXPIRED = "side_quest_expired"
     SIDE_QUEST_WITHDRAWN = "side_quest_withdrawn"
+    FRIENDSHIP_REFUSED = "friendship_refused"
+    FRIENDSHIP_FORMED = "friendship_formed"
+    FRIENDSHIP_FAILED = "friendship_failed"
+    FRIENDSHIP_ENDED = "friendship_ended"
 
 
 # Default EXP awarded for clearing a quest of each difficulty.
