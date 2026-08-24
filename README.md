@@ -163,6 +163,12 @@ The iOS app is the real client. Until it exists — and afterwards, when you wan
 to see what the API actually returns — there is a React client in
 [`web/`](web/README.md) that covers every endpoint on this page.
 
+It is **a phone UI**: one column at phone width, a bottom tab bar, and sheets
+rather than side-by-side panels, so what you are testing looks like what the
+app will be. On a desktop browser it sits centred at phone width instead of
+reflowing. The dev server listens on the local network, so a real phone on the
+same Wi-Fi can open it.
+
 ```bash
 cd web
 npm install
@@ -185,13 +191,13 @@ skipped and the API runs as usual.
 It covers register and log in, the status window and stat allocation,
 authoring and editing quests on any schedule, logging progress, clearing
 quests, the quote collection and today's pick, the daily reset, the event feed,
-and the penalty ledger. A **Requests** tab lists every call the page has made
-with its JSON, its status, and how long it took, so a failure is legible
+and the penalty ledger. The **System** tab also lists every call the page has
+made with its JSON, its status, and how long it took, so a failure is legible
 without opening devtools.
 
 Two things worth knowing:
 
-- **The API field in the header retargets it.** Leave it blank to use the
+- **The API target lives behind the gear icon.** Leave it blank to use the
   server that served the page; point it at another host to drive a deployed
   backend from a local page. That is a cross-origin request, so the target's
   `APP_CORS_ORIGINS` has to allow this page's origin.

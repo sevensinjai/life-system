@@ -2,42 +2,39 @@
 
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { ListPlus, Plus } from "lucide-react"
 import { toast } from "sonner"
 
 import { EmptyState } from "@/components/empty-state"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Textarea } from "@/components/ui/textarea"
 import { useApi } from "@/hooks/use-api"
+import { parseBulkQuotes } from "@/lib/bulk-quotes"
 import { formatDate, formatDateTime, plural } from "@/lib/format"
 import { queryKeys } from "@/lib/query-keys"
-import { parseBulkQuotes } from "@/lib/bulk-quotes"
 import type { Quote } from "@/lib/types"
+
+type Editor = { mode: "write" } | { mode: "batch" } | { mode: "edit"; quote: Quote }
 
 export function QuotesView() {
   const { api } = useApi()
   const queryClient = useQueryClient()
 
   const [includeArchived, setIncludeArchived] = useState(false)
+  const [editor, setEditor] = useState<Editor | null>(null)
   const [draft, setDraft] = useState({ text: "", author: "" })
   const [bulk, setBulk] = useState("")
   const [editing, setEditing] = useState<Quote | null>(null)
@@ -55,11 +52,17 @@ export function QuotesView() {
   const refreshQuotes = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.quotes })
 
+  const close = () => {
+    setEditor(null)
+    setEditing(null)
+  }
+
   const addOne = useMutation({
     mutationFn: () =>
       api.createQuote({ text: draft.text, author: draft.author.trim() || null }),
     onSuccess: () => {
       setDraft({ text: "", author: "" })
+      close()
       toast.success("Quote added to the rotation.")
       void refreshQuotes()
     },
@@ -69,6 +72,7 @@ export function QuotesView() {
     mutationFn: () => api.createQuotes(parseBulkQuotes(bulk)),
     onSuccess: (result) => {
       setBulk("")
+      close()
       toast.success(
         `Added ${result.created_count}` +
           (result.skipped_count
@@ -87,7 +91,7 @@ export function QuotesView() {
         is_active: quote.is_active,
       }),
     onSuccess: () => {
-      setEditing(null)
+      close()
       toast.success("Quote updated.")
       void refreshQuotes()
     },
@@ -110,58 +114,133 @@ export function QuotesView() {
   })
 
   return (
-    <>
-      <div className="grid items-start gap-6 lg:grid-cols-2">
-        <div className="grid gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Today's quote</CardTitle>
-              <CardDescription>
-                A pure read — no daily reset needed, and stable all day.
-              </CardDescription>
-              <CardAction>
-                <Badge variant="outline" className="font-mono text-xs">
-                  {formatDate(today.data?.local_date)}
-                </Badge>
-              </CardAction>
-            </CardHeader>
-            <CardContent className="grid gap-3">
-              {today.isLoading && <Skeleton className="h-24 w-full" />}
-              {today.data &&
-                (today.data.quote ? (
-                  <figure className="grid gap-2">
-                    <blockquote className="text-xl leading-relaxed">
-                      &ldquo;{today.data.quote.text}&rdquo;
-                    </blockquote>
-                    <figcaption className="text-muted-foreground text-sm">
-                      — {today.data.quote.author ?? "you"} ·{" "}
-                      <span className="font-mono">#{today.data.quote.id}</span>
-                    </figcaption>
-                  </figure>
-                ) : (
-                  <EmptyState>Nothing in rotation yet. Write one below.</EmptyState>
-                ))}
-              {today.data && (
-                <p className="text-muted-foreground font-mono text-xs">
-                  pool {today.data.pool_size} · turns over{" "}
-                  {formatDateTime(today.data.refresh_after)}
-                </p>
-              )}
-            </CardContent>
-          </Card>
+    <div className="grid gap-4">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Today's quote</CardTitle>
+          <CardAction>
+            <Badge variant="outline" className="font-mono text-xs">
+              {formatDate(today.data?.local_date)}
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <CardContent className="grid gap-3">
+          {today.isLoading && <Skeleton className="h-20 w-full" />}
+          {today.data &&
+            (today.data.quote ? (
+              <figure className="grid gap-2">
+                <blockquote className="text-lg leading-relaxed">
+                  &ldquo;{today.data.quote.text}&rdquo;
+                </blockquote>
+                <figcaption className="text-muted-foreground text-sm">
+                  — {today.data.quote.author ?? "you"} ·{" "}
+                  <span className="font-mono">#{today.data.quote.id}</span>
+                </figcaption>
+              </figure>
+            ) : (
+              <EmptyState>Nothing in rotation yet. Write one below.</EmptyState>
+            ))}
+          {today.data && (
+            <p className="text-muted-foreground font-mono text-[0.7rem]">
+              pool {today.data.pool_size} · turns over{" "}
+              {formatDateTime(today.data.refresh_after)}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Write a quote</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="grid gap-4"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  addOne.mutate()
+      <div className="flex gap-2">
+        <Button className="flex-1" onClick={() => setEditor({ mode: "write" })}>
+          <Plus /> Write
+        </Button>
+        <Button
+          variant="secondary"
+          className="flex-1"
+          onClick={() => setEditor({ mode: "batch" })}
+        >
+          <ListPlus /> Paste batch
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <h2 className="font-semibold">
+          Collection{" "}
+          <span className="text-muted-foreground font-mono text-xs">
+            {quotes.data?.length ?? 0}
+          </span>
+        </h2>
+        <Label htmlFor="include-retired" className="text-muted-foreground text-xs font-normal">
+          <Checkbox
+            id="include-retired"
+            checked={includeArchived}
+            onCheckedChange={(checked) => setIncludeArchived(checked === true)}
+          />
+          include retired
+        </Label>
+      </div>
+
+      {quotes.isLoading && <Skeleton className="h-32 w-full" />}
+      {quotes.data?.length === 0 && (
+        <EmptyState>No quotes yet. The lock screen has nothing to show.</EmptyState>
+      )}
+      {quotes.data?.map((quote) => (
+        <article
+          key={quote.id}
+          className={`rounded-lg border p-3 ${quote.is_active ? "" : "opacity-60"}`}
+        >
+          <p className="text-sm">&ldquo;{quote.text}&rdquo;</p>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <p className="text-muted-foreground font-mono text-[0.7rem]">
+              #{quote.id}
+              {quote.author ? ` · ${quote.author}` : ""}
+              {quote.is_active ? "" : " · retired"}
+            </p>
+            <div className="flex shrink-0 gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setEditing(quote)
+                  setEditor({ mode: "edit", quote })
                 }}
               >
+                Edit
+              </Button>
+              {quote.is_active ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={() => retire.mutate(quote.id)}
+                >
+                  Retire
+                </Button>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => restore.mutate(quote.id)}>
+                  Restore
+                </Button>
+              )}
+            </div>
+          </div>
+        </article>
+      ))}
+
+      <Sheet open={Boolean(editor)} onOpenChange={(open) => !open && close()}>
+        <SheetContent side="bottom" className="pb-safe max-h-[92vh] overflow-y-auto">
+          {editor?.mode === "write" && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                addOne.mutate()
+              }}
+            >
+              <SheetHeader>
+                <SheetTitle>Write a quote</SheetTitle>
+                <SheetDescription>
+                  It joins the rotation immediately, though not necessarily as today's.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="grid gap-4 px-4">
                 <div className="grid gap-2">
                   <Label htmlFor="quote-text">Text</Label>
                   <Input
@@ -180,131 +259,67 @@ export function QuotesView() {
                     maxLength={120}
                     placeholder="leave blank for your own"
                     value={draft.author}
-                    onChange={(event) =>
-                      setDraft({ ...draft, author: event.target.value })
-                    }
+                    onChange={(event) => setDraft({ ...draft, author: event.target.value })}
                   />
                 </div>
-                <Button type="submit" disabled={addOne.isPending}>
+              </div>
+              <div className="p-4">
+                <Button type="submit" className="w-full" disabled={addOne.isPending}>
                   Add
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
+              </div>
+            </form>
+          )}
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Paste a batch</CardTitle>
-              <CardDescription>
-                One per line, optionally <code className="font-mono">text -- author</code>
-                . Duplicates already in rotation are skipped, not rejected.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form
-                className="grid gap-4"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  if (!parseBulkQuotes(bulk).length) {
-                    toast.error("Nothing to add — write one quote per line.")
-                    return
-                  }
-                  addBatch.mutate()
-                }}
-              >
+          {editor?.mode === "batch" && (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (!parseBulkQuotes(bulk).length) {
+                  toast.error("Nothing to add — write one quote per line.")
+                  return
+                }
+                addBatch.mutate()
+              }}
+            >
+              <SheetHeader>
+                <SheetTitle>Paste a batch</SheetTitle>
+                <SheetDescription>
+                  One per line, optionally <code className="font-mono">text -- author</code>.
+                  Duplicates already in rotation are skipped, not rejected.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="px-4">
                 <Textarea
                   aria-label="Quotes, one per line"
-                  className="min-h-32 font-mono text-xs"
+                  className="min-h-40 font-mono text-xs"
                   placeholder={"Arise. -- The System\nHard days make hard people.\nOne more rep."}
                   value={bulk}
                   onChange={(event) => setBulk(event.target.value)}
                 />
-                <Button type="submit" variant="secondary" disabled={addBatch.isPending}>
+              </div>
+              <div className="p-4">
+                <Button type="submit" className="w-full" disabled={addBatch.isPending}>
                   Add batch
                 </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
+              </div>
+            </form>
+          )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Collection</CardTitle>
-            <CardDescription>Newest first.</CardDescription>
-            <CardAction>
-              <Badge variant="outline" className="font-mono text-xs">
-                {plural(quotes.data?.length ?? 0, "quote")}
-              </Badge>
-            </CardAction>
-          </CardHeader>
-          <CardContent className="grid gap-3">
-            <Label htmlFor="include-retired" className="text-muted-foreground text-xs font-normal">
-              <Checkbox
-                id="include-retired"
-                checked={includeArchived}
-                onCheckedChange={(checked) => setIncludeArchived(checked === true)}
-              />
-              include retired
-            </Label>
-
-            {quotes.isLoading && <Skeleton className="h-32 w-full" />}
-            {quotes.data?.length === 0 && (
-              <EmptyState>No quotes yet. The lock screen has nothing to show.</EmptyState>
-            )}
-            {quotes.data?.map((quote) => (
-              <article
-                key={quote.id}
-                className={`flex flex-wrap items-start justify-between gap-3 rounded-lg border p-3 ${
-                  quote.is_active ? "" : "opacity-60"
-                }`}
-              >
-                <div className="min-w-40 flex-1">
-                  <p>&ldquo;{quote.text}&rdquo;</p>
-                  <p className="text-muted-foreground mt-1 font-mono text-xs">
-                    #{quote.id}
-                    {quote.author ? ` · ${quote.author}` : ""}
-                    {quote.is_active ? "" : " · retired"}
-                  </p>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(quote)}>
-                    Edit
-                  </Button>
-                  {quote.is_active ? (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => retire.mutate(quote.id)}
-                    >
-                      Retire
-                    </Button>
-                  ) : (
-                    <Button size="sm" variant="ghost" onClick={() => restore.mutate(quote.id)}>
-                      Restore
-                    </Button>
-                  )}
-                </div>
-              </article>
-            ))}
-          </CardContent>
-        </Card>
-      </div>
-
-      <Dialog open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
-        <DialogContent>
-          {editing && (
+          {editor?.mode === "edit" && editing && (
             <form
               onSubmit={(event) => {
                 event.preventDefault()
                 save.mutate(editing)
               }}
             >
-              <DialogHeader>
-                <DialogTitle>Edit quote #{editing.id}</DialogTitle>
-              </DialogHeader>
-
-              <div className="grid gap-4 py-4">
+              <SheetHeader>
+                <SheetTitle>Edit quote #{editing.id}</SheetTitle>
+                <SheetDescription>
+                  Retiring keeps the id, so a widget holding it still resolves.
+                </SheetDescription>
+              </SheetHeader>
+              <div className="grid gap-4 px-4">
                 <div className="grid gap-2">
                   <Label htmlFor="edit-quote-text">Text</Label>
                   <Input
@@ -312,9 +327,7 @@ export function QuotesView() {
                     maxLength={500}
                     required
                     value={editing.text}
-                    onChange={(event) =>
-                      setEditing({ ...editing, text: event.target.value })
-                    }
+                    onChange={(event) => setEditing({ ...editing, text: event.target.value })}
                   />
                 </div>
                 <div className="grid gap-2">
@@ -339,19 +352,15 @@ export function QuotesView() {
                   in rotation
                 </Label>
               </div>
-
-              <DialogFooter>
-                <Button type="button" variant="ghost" onClick={() => setEditing(null)}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={save.isPending}>
+              <div className="p-4">
+                <Button type="submit" className="w-full" disabled={save.isPending}>
                   Save
                 </Button>
-              </DialogFooter>
+              </div>
             </form>
           )}
-        </DialogContent>
-      </Dialog>
-    </>
+        </SheetContent>
+      </Sheet>
+    </div>
   )
 }

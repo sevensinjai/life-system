@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { useQuestActions } from "@/features/quests/use-quest-actions"
-import { cn } from "@/lib/utils"
 import { formatDate, percent } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import type { Quest } from "@/lib/types"
 
 export function QuestCard({
@@ -25,7 +25,7 @@ export function QuestCard({
 
   const instance = quest.current_instance
   // Only an active period takes progress; a cleared or failed one is history
-  // the API refuses to touch, so it gets a badge instead of buttons.
+  // the API refuses to touch, so it gets a label instead of buttons.
   const open = instance?.status === "active"
   const busy = progress.isPending || complete.isPending
 
@@ -33,39 +33,34 @@ export function QuestCard({
     `${quest.exp_reward} EXP`,
     quest.stat_reward ? `+${quest.stat_reward_amount} ${quest.stat_reward}` : null,
     showSchedule ? quest.schedule.label : null,
-    quest.unit ? `${quest.target_count} ${quest.unit}` : null,
   ].filter(Boolean)
 
   return (
-    <article className={cn("rounded-lg border p-4", !quest.is_active && "opacity-60")}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              "size-6 justify-center rounded-md p-0 font-mono font-bold",
-              "ABS".includes(quest.difficulty) && "border-chart-4/60 text-chart-4"
-            )}
-          >
-            {quest.difficulty}
-          </Badge>
-          <h3 className="font-medium">{quest.title}</h3>
-          {!quest.is_active && (
-            <Badge variant="secondary" className="text-xs">
-              archived
-            </Badge>
+    <article className={cn("rounded-lg border p-3", !quest.is_active && "opacity-60")}>
+      <div className="flex items-start gap-2">
+        <Badge
+          variant="outline"
+          className={cn(
+            "size-6 shrink-0 justify-center rounded-md p-0 font-mono font-bold",
+            "ABS".includes(quest.difficulty) && "border-chart-4/60 text-chart-4"
           )}
-        </div>
-        <Badge variant="ghost" className="text-muted-foreground font-mono text-xs">
-          #{quest.id}
+        >
+          {quest.difficulty}
         </Badge>
+        <div className="min-w-0 flex-1">
+          <h3 className="leading-tight font-medium">{quest.title}</h3>
+          <p className="text-muted-foreground mt-0.5 font-mono text-[0.7rem]">
+            {facts.join(" · ")}
+          </p>
+        </div>
+        <span className="text-muted-foreground shrink-0 font-mono text-[0.7rem]">
+          #{quest.id}
+        </span>
       </div>
 
       {quest.description && (
-        <p className="text-muted-foreground mt-1 text-sm">{quest.description}</p>
+        <p className="text-muted-foreground mt-2 text-sm">{quest.description}</p>
       )}
-
-      <p className="text-muted-foreground mt-1 font-mono text-xs">{facts.join(" · ")}</p>
 
       {instance ? (
         <div className="mt-3 grid gap-1.5">
@@ -101,12 +96,12 @@ export function QuestCard({
         </p>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {open && (
-          <>
+      {open && (
+        <div className="mt-3 grid gap-2">
+          <div className="flex items-center gap-2">
             <Button
-              size="sm"
               variant="secondary"
+              className="flex-1"
               disabled={busy}
               onClick={() => progress.mutate({ id: quest.id, amount: 1 })}
             >
@@ -116,25 +111,27 @@ export function QuestCard({
               aria-label={`Progress amount for ${quest.title}`}
               data-testid={`amount-${quest.id}`}
               type="number"
-              className="h-8 w-20 font-mono"
+              inputMode="numeric"
+              className="w-20 shrink-0 text-center font-mono"
               value={amount}
               onChange={(event) => setAmount(event.target.value)}
             />
             <Button
-              size="sm"
               variant="secondary"
+              className="flex-1"
               disabled={busy}
-              onClick={() =>
-                progress.mutate({ id: quest.id, amount: Number(amount) || 1 })
-              }
+              onClick={() => progress.mutate({ id: quest.id, amount: Number(amount) || 1 })}
             >
               Add
             </Button>
-            <Button size="sm" disabled={busy} onClick={() => complete.mutate(quest.id)}>
-              Complete
-            </Button>
-          </>
-        )}
+          </div>
+          <Button className="w-full" disabled={busy} onClick={() => complete.mutate(quest.id)}>
+            Complete
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center justify-end gap-1">
         <Button size="sm" variant="ghost" onClick={() => onEdit(quest)}>
           Edit
         </Button>

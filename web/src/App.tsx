@@ -1,4 +1,4 @@
-/** Providers, then the signed-in/out switch. */
+/** Providers, then the phone shell. */
 
 import {
   MutationCache,
@@ -55,20 +55,39 @@ export default function App() {
           <Shell />
         </QueryClientProvider>
       </ApiProvider>
-      <Toaster position="top-right" richColors closeButton />
+      <Toaster
+        position="top-center"
+        richColors
+        closeButton
+        offset={{ top: "72px" }}
+        mobileOffset={{ top: "72px" }}
+      />
     </ThemeProvider>
   )
 }
 
+/**
+ * A phone-sized app, and only that.
+ *
+ * The iOS client is the thing being stood in for, so there is no desktop
+ * layout to fall back to: on a big screen the same UI sits centred at phone
+ * width instead of reflowing into something the app will never look like.
+ */
 function Shell() {
   const { authenticated } = useApi()
 
   return (
-    <div className="system-backdrop min-h-screen">
-      <AppHeader />
-      <main className="mx-auto w-full max-w-6xl px-4 pt-6 pb-20">
-        {authenticated ? <Workspace /> : <AuthScreen />}
-      </main>
+    <div className="bg-muted/40 flex h-full justify-center">
+      <div className="bg-background system-backdrop flex h-full w-full max-w-[430px] flex-col overflow-hidden sm:border-x">
+        <AppHeader />
+        {authenticated ? (
+          <Workspace />
+        ) : (
+          <main className="flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-8">
+            <AuthScreen />
+          </main>
+        )}
+      </div>
     </div>
   )
 }

@@ -16,6 +16,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Reachable from a phone on the same network, which is the point.
+    host: true,
     proxy: Object.fromEntries(
       [
         "/auth",

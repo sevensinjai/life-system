@@ -5,15 +5,9 @@ import { useMutation } from "@tanstack/react-query"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useApi } from "@/hooks/use-api"
 import { localTimezone } from "@/lib/format"
 import type { TokenResponse } from "@/lib/types"
@@ -45,15 +39,27 @@ export function AuthScreen() {
   })
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <CardTitle>Log in</CardTitle>
-          <CardDescription>Pick up where the last session left off.</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <div className="grid gap-6">
+      <div className="grid gap-1 pt-4 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Awaken</h1>
+        <p className="text-muted-foreground text-sm">
+          Run your life like a progression RPG.
+        </p>
+      </div>
+
+      <Tabs defaultValue="login">
+        <TabsList className="w-full">
+          <TabsTrigger value="login" className="flex-1">
+            Log in
+          </TabsTrigger>
+          <TabsTrigger value="register" className="flex-1">
+            Register
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="login">
           <form
-            className="grid gap-4"
+            className="grid gap-4 pt-4"
             onSubmit={(event) => {
               event.preventDefault()
               loginMutation.mutate()
@@ -64,6 +70,7 @@ export function AuthScreen() {
               <Input
                 id="login-email"
                 type="email"
+                inputMode="email"
                 autoComplete="username"
                 required
                 value={login.email}
@@ -81,21 +88,15 @@ export function AuthScreen() {
                 onChange={(event) => setLogin({ ...login, password: event.target.value })}
               />
             </div>
-            <Button type="submit" disabled={loginMutation.isPending}>
+            <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
               Enter the System
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Register</CardTitle>
-          <CardDescription>An account and a player profile, in one call.</CardDescription>
-        </CardHeader>
-        <CardContent>
+        <TabsContent value="register">
           <form
-            className="grid gap-4"
+            className="grid gap-4 pt-4"
             onSubmit={(event) => {
               event.preventDefault()
               registerMutation.mutate()
@@ -106,6 +107,7 @@ export function AuthScreen() {
               <Input
                 id="register-email"
                 type="email"
+                inputMode="email"
                 autoComplete="username"
                 required
                 value={registration.email}
@@ -156,17 +158,15 @@ export function AuthScreen() {
                 IANA name; quests reset at midnight here.
               </p>
             </div>
-            <Button type="submit" disabled={registerMutation.isPending}>
+            <Button type="submit" className="w-full" disabled={registerMutation.isPending}>
               Awaken
             </Button>
           </form>
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
 
-      <p className="text-muted-foreground text-sm md:col-span-2">
-        The token is kept in this browser's local storage, so a reload keeps you signed
-        in. Point <strong>API</strong> at another host to drive a deployed backend
-        instead of this one.
+      <p className="text-muted-foreground text-center text-xs">
+        The token is kept on this device. Set the API target from the gear icon.
       </p>
     </div>
   )

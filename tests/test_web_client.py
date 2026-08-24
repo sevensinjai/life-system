@@ -43,6 +43,15 @@ def test_build_script_exists() -> None:
     assert "build" in package["scripts"]
 
 
+def test_client_declares_a_mobile_viewport() -> None:
+    """It is a phone UI; without this meta a phone renders it desktop-scaled."""
+    index = (WEB_SOURCE / "index.html").read_text()
+
+    assert 'name="viewport"' in index
+    assert "width=device-width" in index
+    assert "viewport-fit=cover" in index, "safe-area insets need viewport-fit=cover"
+
+
 def test_vite_builds_for_the_mount_path() -> None:
     """A base other than /web/ would emit asset URLs the API does not serve."""
     config = (WEB_SOURCE / "vite.config.ts").read_text()

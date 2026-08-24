@@ -146,3 +146,24 @@
     100% 100%,
     100% 34px;
 }
+
+/* The client is a phone UI, so the page itself never scrolls: the app fills
+   the viewport and only its content region moves. */
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Room for the home indicator and the notch on a real device. */
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}

@@ -5,7 +5,15 @@ author quests, log progress, write quotes, run the daily reset, and watch every
 request the page makes.
 
 The iOS app is the real client. This one exists so the API can be exercised
-without it, over the same public endpoints.
+without it, over the same public endpoints — and it is **a phone UI only**.
+There is no desktop layout: one column at phone width, a bottom tab bar, and
+sheets instead of side-by-side panels. On a big screen the same UI sits centred
+at 430px rather than reflowing into something the app will never look like.
+
+Open it on a real phone with `npm run dev` — the dev server listens on the
+local network, so `http://<your-machine>:5173/web/` works from a device on the
+same Wi-Fi. It declares the iOS web-app meta tags, so Add to Home Screen gives
+you a full-screen version to poke at.
 
 ## Develop
 
@@ -53,13 +61,15 @@ src/
   features/
     auth/              # register and log in
     status/            # status window, allocation, profile, daily reset
-    quests/            # the board, the designer, the edit dialog
+    quests/            # the board, the card, the authoring sheet
     quotes/            # the collection and today's pick
-    log/               # events and penalties
-    requests/          # what went over the wire
-    workspace.tsx      # the tab shell
+    system/            # events, penalties, and what went over the wire
+    workspace.tsx      # the bottom tab bar and the screens it switches
   components/ui/       # shadcn components, unmodified
 ```
+
+Five tabs, because a phone tab bar stops being tappable past that: the event
+log, the penalty ledger, and the request log share the System screen.
 
 ## Sharing this with an iOS app
 
@@ -74,6 +84,9 @@ which is DOM-only. The React Native equivalents are NativeWind for the Tailwind
 class names and a component set such as react-native-reusables, which follows
 shadcn's copy-the-source model. Keep view logic in `features/` thin and the
 swap stays mechanical.
+
+The phone-only layout is deliberate here too: screens, tab bar, and sheets map
+onto what the app will have, so a decision made here is a decision made once.
 
 ## Adding shadcn components
 
