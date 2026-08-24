@@ -4,9 +4,10 @@ from datetime import date, timedelta
 
 import pytest
 
-from app.models import Player, Quest, QuestInstance, QuestStatus, QuestType, StatName
+from app.models import Player, Quest, QuestInstance, QuestStatus, ScheduleKind
 from app.services.daily import run_daily_reset
 from app.services.quests import create_quest, get_or_create_instance
+from app.services.scheduling import Period, Schedule
 from tests.conftest import at
 
 DAY_ONE = date(2026, 8, 24)
@@ -34,7 +35,7 @@ def daily_quest(db, seoul_player, settings) -> Quest:
         db,
         seoul_player,
         title="100 push-ups",
-        quest_type=QuestType.DAILY,
+        schedule=Schedule(ScheduleKind.DAILY),
         target_count=100,
         exp_reward=100,
         today=DAY_ONE,
@@ -46,7 +47,7 @@ def daily_quest(db, seoul_player, settings) -> Quest:
 def instance_for(db, quest: Quest, day: date) -> QuestInstance | None:
     return (
         db.query(QuestInstance)
-        .filter(QuestInstance.quest_id == quest.id, QuestInstance.quest_date == day)
+        .filter(QuestInstance.quest_id == quest.id, QuestInstance.period_start == day)
         .one_or_none()
     )
 
@@ -152,7 +153,8 @@ def test_timezone_decides_when_the_day_turns(db, seoul_player, daily_quest, sett
 def test_multiple_missed_days_each_fail_once(db, seoul_player, daily_quest, settings):
     """Three lapsed days cost three penalties, but only down to zero EXP."""
     for offset in (1, 2):
-        get_or_create_instance(db, daily_quest, DAY_ONE + timedelta(days=offset))
+        day = DAY_ONE + timedelta(days=offset)
+        get_or_create_instance(db, daily_quest, Period(start=day, end=day))
     seoul_player.exp = 150
     db.commit()
 
@@ -164,7 +166,7 @@ def test_multiple_missed_days_each_fail_once(db, seoul_player, daily_quest, sett
     assert result.total_exp_lost == 150
     assert seoul_player.exp == 0
     statuses = {i.status for i in db.query(QuestInstance).filter(
-        QuestInstance.quest_date < date(2026, 8, 28)
+        QuestInstance.period_start < date(2026, 8, 28)
     )}
     assert statuses == {QuestStatus.FAILED}
 
@@ -180,12 +182,12 @@ def test_archived_daily_stops_spawning(db, seoul_player, daily_quest, settings):
     assert result.failed_count == 1  # the already-open instance still lapses
 
 
-def test_normal_quests_are_never_penalized(db, seoul_player, settings):
+def test_one_time_quests_are_never_penalized(db, seoul_player, settings):
     create_quest(
         db,
         seoul_player,
         title="Read a book",
-        quest_type=QuestType.NORMAL,
+        schedule=Schedule(ScheduleKind.ONCE),
         exp_reward=100,
         today=DAY_ONE,
     )
@@ -211,7 +213,7 @@ def test_penalty_multiplier_scales_the_loss(db, seoul_player, daily_quest, setti
 
 
 def test_reset_endpoint_is_safe_to_call_repeatedly(auth_client):
-    auth_client.post("/quests", json={"title": "Run 10km", "quest_type": "daily"})
+    auth_client.post("/quests", json={"title": "Run 10km", "schedule": {"kind": "daily"}})
 
     first = auth_client.post("/system/daily-reset").json()
     second = auth_client.post("/system/daily-reset").json()

@@ -3,11 +3,19 @@
 from enum import StrEnum
 
 
-class QuestType(StrEnum):
-    """Daily quests reset and can inflict penalties; normal quests do not."""
+class ScheduleKind(StrEnum):
+    """How often a quest comes around.
 
+    Every recurring kind works the same way: it opens a period, you make
+    progress inside it, and letting the period end unfinished costs you EXP.
+    Only the length and placement of the period differ.
+    """
+
+    ONCE = "once"
     DAILY = "daily"
-    NORMAL = "normal"
+    WEEKDAYS = "weekdays"
+    INTERVAL = "interval"
+    WEEKLY = "weekly"
 
 
 class QuestDifficulty(StrEnum):

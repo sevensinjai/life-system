@@ -3,10 +3,11 @@
 A backend for running your life like a progression RPG — the *系統* / System
 trope from manhwa such as *Solo Leveling*, built as a real API.
 
-You accept quests, log progress against them, and earn EXP. EXP levels you up,
-levels grant stat points, and stat points raise your stats. Daily quests reset
-at your local midnight, and the ones you left unfinished **fail and cost you
-EXP**. The penalty is what makes the loop mean something.
+You **design your own quests**, then run them. Quests earn EXP, EXP levels you
+up, levels grant stat points, and stat points raise your stats. Recurring
+quests open a period on whatever schedule you author, and a period that closes
+unfinished **fails and costs you EXP**. The penalty is what makes the loop mean
+something.
 
 Built backend-first so an iOS client can sit on top of it.
 
@@ -49,12 +50,12 @@ curl -X POST localhost:8000/auth/register -H 'Content-Type: application/json' -d
 
 TOKEN=...   # access_token from the response
 
-# Accept a daily quest
+# Design a quest: 100 push-ups, every Mon/Wed/Fri, worth C-rank EXP
 curl -X POST localhost:8000/quests -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{
     "title": "100 push-ups",
-    "quest_type": "daily",
-    "difficulty": "D",
+    "schedule": { "kind": "weekdays", "days": [0, 2, 4] },
+    "difficulty": "C",
     "target_count": 100,
     "unit": "reps",
     "stat_reward": "strength",
@@ -65,9 +66,45 @@ curl -X POST localhost:8000/quests -H "Authorization: Bearer $TOKEN" \
 curl -X POST localhost:8000/quests/1/progress -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"amount": 40}'
 
-# Check your status window
-curl localhost:8000/players/me -H "Authorization: Bearer $TOKEN"
+# What is on the board right now
+curl localhost:8000/quests/today -H "Authorization: Bearer $TOKEN"
 ```
+
+## Authoring quests
+
+You are both the designer and the player. A quest is yours alone — nothing is
+shared or published — so you can tune the difficulty and rewards honestly.
+
+Every quest has a **schedule**, which decides when it opens a **period** and
+how long that period stays open:
+
+| `kind` | Meaning | Period length | Extra fields |
+| ------ | ------- | ------------- | ------------ |
+| `once` | No recurrence; waits until you clear it | never closes | — |
+| `daily` | Every day | 1 day | — |
+| `weekdays` | Only on chosen days | 1 day | `days`, e.g. `[0,2,4]` |
+| `interval` | Every N days | N days | `interval_days` |
+| `weekly` | Once a week | 7 days | `week_start` (optional) |
+
+`days` are `0 = Monday` through `6 = Sunday`. `anchor` sets the day a
+recurrence counts from, and defaults to the day you authored the quest.
+
+**"Three runs a week"** is a `weekly` quest with `target_count: 3` and
+`unit: "runs"` — you log one run at a time and it clears when the third lands.
+Because everything is expressed as *progress toward a target inside a period*,
+every schedule kind behaves identically; only the window changes.
+
+```jsonc
+// Every 3 days, and you get the full 3 days to do it
+{ "title": "Deep clean", "schedule": { "kind": "interval", "interval_days": 3 } }
+
+// Three runs a week, any days you like
+{ "title": "Run", "schedule": { "kind": "weekly" }, "target_count": 3, "unit": "runs" }
+```
+
+Editing a quest applies from the next period onward — the open one is left
+alone rather than retroactively re-dated. Changing an interval's length keeps
+the original anchor, so re-tuning a quest does not silently restart its cycle.
 
 ## Endpoints
 
@@ -88,11 +125,11 @@ curl localhost:8000/players/me -H "Authorization: Bearer $TOKEN"
 ### Quests
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
-| `POST`   | `/quests` | Accept a new quest |
-| `GET`    | `/quests` | List quests (`?quest_type=`, `?include_archived=`) |
-| `GET`    | `/quests/today` | Today's daily quests |
+| `POST`   | `/quests` | Author a new quest |
+| `GET`    | `/quests` | List quests (`?schedule=`, `?recurring_only=`, `?include_archived=`) |
+| `GET`    | `/quests/today` | Everything with a period open right now |
 | `GET`    | `/quests/{id}` | Fetch one quest |
-| `PATCH`  | `/quests/{id}` | Edit a quest |
+| `PATCH`  | `/quests/{id}` | Redesign a quest |
 | `DELETE` | `/quests/{id}` | Archive it (history is kept) |
 | `POST`   | `/quests/{id}/progress` | Log progress |
 | `POST`   | `/quests/{id}/complete` | Clear it outright |
@@ -100,7 +137,7 @@ curl localhost:8000/players/me -H "Authorization: Bearer $TOKEN"
 ### System
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
-| `POST` | `/system/daily-reset` | Roll the day over: fail lapsed dailies, issue today's |
+| `POST` | `/system/daily-reset` | Roll periods over: lapse the closed, open the due |
 | `GET`  | `/system/events` | The notification feed (`?event_type=`, `?limit=`, `?offset=`) |
 | `GET`  | `/system/penalties` | Every EXP loss on record |
 
@@ -111,7 +148,7 @@ multiple of ten: 100, 280, 520, 800, 1120, 1470… Both the base and the exponen
 are settings, so you can retune the whole curve without touching code.
 
 **Difficulty sets rewards.** A quest's rank determines its default EXP, which
-you can override per quest:
+you can override per quest when you author it:
 
 | Rank | E | D | C | B | A | S |
 | ---- | - | - | - | - | - | - |
@@ -126,12 +163,17 @@ applied.
 `stat_reward_amount` pay out on completion, on top of EXP — so push-ups can
 raise strength specifically.
 
-## Daily quests and penalties
+## Penalties
 
-A daily quest is a template that spawns one instance per day. At your local
-midnight, any instance still unfinished from a past date is marked **failed**,
+When a period closes with its target unmet, the instance is marked **failed**
 and you lose EXP equal to that quest's reward (scaled by
 `APP_PENALTY_EXP_MULTIPLIER`).
+
+The rule is uniform across schedules: *a period that ended before today
+lapses*. A daily quest lapses the next day; a weekly quest survives midweek and
+lapses when the week turns; an "every 3 days" quest lapses only when the fourth
+day opens the next window. One-time quests have no period end, so they never
+lapse — they wait indefinitely.
 
 Two deliberate design decisions:
 
@@ -143,8 +185,8 @@ Two deliberate design decisions:
   taken, not what was owed.
 
 The rollover is **idempotent within a local day** — running it repeatedly
-neither double-penalizes nor duplicates quests — enforced by a unique
-constraint on `(quest_id, quest_date)`.
+neither double-penalizes nor duplicates periods — enforced by a unique
+constraint on `(quest_id, period_start)`.
 
 ### Triggering the rollover
 
@@ -164,10 +206,10 @@ different moments.
 
 ### Timezones
 
-Each player stores an IANA timezone, and the day turns at *their* local
+Each player stores an IANA timezone, and periods turn at *their* local
 midnight. For a player in `Asia/Seoul`, 20:00 UTC is already 05:00 the next
 day. Changing your timezone shifts future rollovers; it does not re-date
-instances that already exist.
+periods that already exist.
 
 ## Layout
 
@@ -183,9 +225,10 @@ app/
   schemas/             # Pydantic request/response models
   services/
     leveling.py        # pure EXP math — no ORM, no clock
+    scheduling.py      # pure period math — when a quest is due, how long you have
     progression.py     # awarding EXP, level-ups, penalties, stat spending
     quests.py          # quest lifecycle
-    daily.py           # the daily reset
+    daily.py           # the rollover
     clock.py           # timezone-aware date handling
     status.py          # building the status window
   routers/             # health, auth, players, quests, system
@@ -194,9 +237,9 @@ scripts/daily_reset.py # cron entrypoint
 tests/
 ```
 
-The EXP math in `services/leveling.py` is deliberately pure — no database, no
-clock, no settings object — which is what makes the curve cheap to test and
-safe to retune.
+`services/leveling.py` and `services/scheduling.py` are deliberately pure — no
+database, no clock, no settings object — which is what makes the EXP curve and
+the schedule rules cheap to test exhaustively and safe to retune.
 
 ## Errors
 
@@ -256,6 +299,11 @@ migrations always target the same database the app uses.
 - `POST /system/daily-reset` on launch and on foreground, before rendering.
 - `GET /players/me` drives the status window; `exp_progress` is a 0–1 fraction
   ready for a progress bar.
+- `GET /quests/today` is the main board: everything with an open period,
+  ordered by deadline, with open-ended one-time quests last.
+- Every quest carries `schedule.label` ("Every Mon, Wed, Fri") for display, and
+  `next_due_date` for quests not currently open.
+- `current_instance.period_end` is the deadline; null means no deadline.
 - Quest actions return the quest, its instance, `exp_gained`, and `leveled_up`
   in one response, so a completion needs no follow-up request to animate a
   level-up.
@@ -265,6 +313,6 @@ migrations always target the same database the app uses.
 
 ## Not built yet
 
-Titles and achievements, rank (E–S) and job classes, and multi-day dungeon
-challenges were scoped out of v1. The event log and quest model leave room for
-all three.
+Titles and achievements, rank (E–S) and job classes, multi-day dungeon
+challenges, quest chains, and reusable drafts or templates. The event log and
+quest model leave room for all of them.

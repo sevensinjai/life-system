@@ -4,7 +4,7 @@ import pytest
 
 PUSHUPS = {
     "title": "100 push-ups",
-    "quest_type": "daily",
+    "schedule": {"kind": "daily"},
     "difficulty": "D",
     "target_count": 100,
     "unit": "reps",
@@ -125,9 +125,9 @@ def test_completing_twice_is_rejected(auth_client, quest) -> None:
     assert response.status_code == 422
 
 
-def test_clearing_a_normal_quest_archives_it(auth_client) -> None:
+def test_clearing_a_one_time_quest_archives_it(auth_client) -> None:
     created = auth_client.post(
-        "/quests", json={"title": "Read a book", "quest_type": "normal"}
+        "/quests", json={"title": "Read a book", "schedule": {"kind": "once"}}
     ).json()
 
     response = auth_client.post(f"/quests/{created['id']}/complete")
@@ -135,7 +135,7 @@ def test_clearing_a_normal_quest_archives_it(auth_client) -> None:
     assert response.json()["quest"]["is_active"] is False
 
 
-def test_clearing_a_daily_quest_leaves_it_active(auth_client, quest) -> None:
+def test_clearing_a_recurring_quest_leaves_it_active(auth_client, quest) -> None:
     response = auth_client.post(f"/quests/{quest['id']}/complete")
 
     assert response.json()["quest"]["is_active"] is True
@@ -148,11 +148,12 @@ def test_listing_excludes_archived_by_default(auth_client, quest) -> None:
     assert len(auth_client.get("/quests?include_archived=true").json()) == 1
 
 
-def test_listing_filters_by_type(auth_client, quest) -> None:
-    auth_client.post("/quests", json={"title": "One-off", "quest_type": "normal"})
+def test_listing_filters_by_schedule(auth_client, quest) -> None:
+    auth_client.post("/quests", json={"title": "One-off", "schedule": {"kind": "once"}})
 
-    assert len(auth_client.get("/quests?quest_type=daily").json()) == 1
-    assert len(auth_client.get("/quests?quest_type=normal").json()) == 1
+    assert len(auth_client.get("/quests?schedule=daily").json()) == 1
+    assert len(auth_client.get("/quests?schedule=once").json()) == 1
+    assert len(auth_client.get("/quests?recurring_only=true").json()) == 1
     assert len(auth_client.get("/quests").json()) == 2
 
 

@@ -5,7 +5,7 @@ from app.models.enums import (
     EventType,
     QuestDifficulty,
     QuestStatus,
-    QuestType,
+    ScheduleKind,
     StatName,
 )
 from app.models.event import SystemEvent
@@ -22,7 +22,7 @@ __all__ = [
     "QuestDifficulty",
     "QuestInstance",
     "QuestStatus",
-    "QuestType",
+    "ScheduleKind",
     "StatName",
     "SystemEvent",
     "User",

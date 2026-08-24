@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     Date,
     DateTime,
@@ -18,17 +19,18 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
-from app.models.enums import QuestDifficulty, QuestStatus, QuestType, StatName
+from app.models.enums import QuestDifficulty, QuestStatus, ScheduleKind, StatName
 
 if TYPE_CHECKING:
     from app.models.player import Player
 
 
 class Quest(Base):
-    """A quest definition.
+    """A quest definition, authored by the player.
 
-    A daily quest is a template: it spawns one QuestInstance per day. A normal
-    quest is one-shot and owns exactly one instance.
+    A recurring quest is a template: it spawns one QuestInstance per period,
+    where the schedule decides how long a period is and when it opens. A
+    one-time quest owns a single instance whose period never ends.
     """
 
     __tablename__ = "quests"
@@ -41,9 +43,18 @@ class Quest(Base):
     title: Mapped[str] = mapped_column(String(200))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    quest_type: Mapped[QuestType] = mapped_column(
-        Enum(QuestType, native_enum=False, length=16), default=QuestType.NORMAL
+    schedule: Mapped[ScheduleKind] = mapped_column(
+        Enum(ScheduleKind, native_enum=False, length=16), default=ScheduleKind.ONCE
     )
+    # Weekdays a WEEKDAYS quest falls on: 0 = Monday .. 6 = Sunday.
+    schedule_days: Mapped[list[int] | None] = mapped_column(JSON, nullable=True)
+    # Period length for an INTERVAL quest.
+    schedule_interval_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # The day the recurrence counts from; also the first period's start.
+    schedule_anchor: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Which weekday a WEEKLY period opens on.
+    week_start: Mapped[int] = mapped_column(Integer, default=0)
+
     difficulty: Mapped[QuestDifficulty] = mapped_column(
         Enum(QuestDifficulty, native_enum=False, length=2), default=QuestDifficulty.E
     )
@@ -71,16 +82,18 @@ class Quest(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Quest id={self.id} title={self.title!r} type={self.quest_type}>"
+        return f"<Quest id={self.id} title={self.title!r} schedule={self.schedule}>"
 
 
 class QuestInstance(Base):
-    """One attempt at a quest on one day."""
+    """One attempt at a quest, covering one period."""
 
     __tablename__ = "quest_instances"
     __table_args__ = (
-        # Makes the daily reset idempotent: re-running it cannot duplicate a day.
-        UniqueConstraint("quest_id", "quest_date", name="uq_quest_instance_per_day"),
+        # Makes the reset idempotent: re-running it cannot duplicate a period.
+        UniqueConstraint(
+            "quest_id", "period_start", name="uq_quest_instance_per_period"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -91,8 +104,10 @@ class QuestInstance(Base):
         ForeignKey("players.id", ondelete="CASCADE"), index=True
     )
 
-    # The player's local date this instance belongs to.
-    quest_date: Mapped[date] = mapped_column(Date, index=True)
+    # The player-local window this instance is open for. A null end never
+    # lapses, which is how one-time quests wait indefinitely.
+    period_start: Mapped[date] = mapped_column(Date, index=True)
+    period_end: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
 
     progress: Mapped[int] = mapped_column(Integer, default=0)
     target_count: Mapped[int] = mapped_column(Integer, default=1)
@@ -113,10 +128,20 @@ class QuestInstance(Base):
     def is_cleared(self) -> bool:
         return self.progress >= self.target_count
 
+    def covers(self, day: date) -> bool:
+        """Whether this instance is the one open on `day`."""
+        if day < self.period_start:
+            return False
+        return self.period_end is None or day <= self.period_end
+
+    def has_lapsed(self, today: date) -> bool:
+        """Whether the window closed before `today`."""
+        return self.period_end is not None and self.period_end < today
+
     def __repr__(self) -> str:
         return (
             f"<QuestInstance id={self.id} quest_id={self.quest_id} "
-            f"date={self.quest_date} status={self.status}>"
+            f"period={self.period_start}..{self.period_end} status={self.status}>"
         )
 
 

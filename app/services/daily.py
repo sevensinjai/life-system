@@ -1,8 +1,9 @@
-"""The daily reset: expire yesterday's unfinished dailies, spawn today's.
+"""The reset: lapse periods that closed unfinished, open the ones due now.
 
-This is the loop that gives the System its teeth. It runs when the player's
-local date has moved past an open daily instance — whether triggered by a
-scheduled job or lazily on the player's next request.
+This is the loop that gives the System its teeth. It is schedule-agnostic —
+a period that ended before today lapses, whether that period was one day, one
+week, or an author's custom interval. One-time quests have no period end, so
+they can never lapse.
 """
 
 from dataclasses import dataclass, field
@@ -18,11 +19,11 @@ from app.models import (
     Quest,
     QuestInstance,
     QuestStatus,
-    QuestType,
+    ScheduleKind,
 )
-from app.services import clock
+from app.services import clock, scheduling
 from app.services.progression import apply_exp_penalty, log_event
-from app.services.quests import get_or_create_instance
+from app.services.quests import get_or_create_instance, schedule_of
 
 
 @dataclass
@@ -54,17 +55,17 @@ def run_daily_reset(
     *,
     now=None,
 ) -> DailyResetResult:
-    """Expire overdue daily instances and open today's.
+    """Lapse closed periods and open the ones due today.
 
     Idempotent: calling it repeatedly within the same local day is a no-op,
-    because expired instances leave ACTIVE status and instance creation is
-    unique per (quest, date).
+    because lapsed instances leave ACTIVE status and instance creation is
+    unique per (quest, period_start).
     """
     today = clock.local_date(player.timezone, now)
     result = DailyResetResult(reset_date=today)
 
-    _expire_overdue(db, player, settings, today, result)
-    _spawn_today(db, player, today, result)
+    _expire_lapsed(db, player, settings, today, result)
+    _open_due_periods(db, player, today, result)
 
     if result.did_anything:
         log_event(
@@ -83,27 +84,26 @@ def run_daily_reset(
     return result
 
 
-def _expire_overdue(
+def _expire_lapsed(
     db: Session,
     player: Player,
     settings: Settings,
     today: date,
     result: DailyResetResult,
 ) -> None:
-    """Fail every daily instance left active on a past date, and penalize it."""
-    overdue = db.scalars(
+    """Fail every instance whose period closed before today, and penalize it."""
+    lapsed = db.scalars(
         select(QuestInstance)
-        .join(Quest, Quest.id == QuestInstance.quest_id)
         .where(
             QuestInstance.player_id == player.id,
             QuestInstance.status == QuestStatus.ACTIVE,
-            QuestInstance.quest_date < today,
-            Quest.quest_type == QuestType.DAILY,
+            QuestInstance.period_end.is_not(None),
+            QuestInstance.period_end < today,
         )
-        .order_by(QuestInstance.quest_date)
+        .order_by(QuestInstance.period_start)
     ).all()
 
-    for instance in overdue:
+    for instance in lapsed:
         quest = db.get(Quest, instance.quest_id)
         if quest is None:
             continue
@@ -115,12 +115,15 @@ def _expire_overdue(
             db,
             player,
             EventType.QUEST_FAILED,
-            f"Daily quest failed: {quest.title} "
+            f"Quest failed: {quest.title} "
             f"({instance.progress}/{instance.target_count})",
             {
                 "quest_id": quest.id,
                 "instance_id": instance.id,
-                "quest_date": instance.quest_date.isoformat(),
+                "period_start": instance.period_start.isoformat(),
+                "period_end": instance.period_end.isoformat()
+                if instance.period_end
+                else None,
                 "progress": instance.progress,
                 "target_count": instance.target_count,
             },
@@ -132,33 +135,37 @@ def _expire_overdue(
                 db,
                 player,
                 penalty_amount,
-                reason=f"Failed daily quest: {quest.title}",
+                reason=f"Failed quest: {quest.title}",
                 instance=instance,
             )
             result.total_exp_lost += penalty.exp_lost
 
 
-def _spawn_today(
+def _open_due_periods(
     db: Session, player: Player, today: date, result: DailyResetResult
 ) -> None:
-    """Ensure every active daily quest has an instance for today."""
-    dailies = db.scalars(
+    """Ensure every recurring quest due today has an open instance."""
+    recurring = db.scalars(
         select(Quest).where(
             Quest.player_id == player.id,
-            Quest.quest_type == QuestType.DAILY,
+            Quest.schedule != ScheduleKind.ONCE,
             Quest.is_active.is_(True),
         )
     ).all()
 
-    for quest in dailies:
+    for quest in recurring:
+        period = scheduling.current_period(schedule_of(quest), today)
+        if period is None:
+            continue  # not due today, e.g. a Mon/Wed/Fri quest on a Tuesday
+
         existing = db.scalar(
             select(QuestInstance).where(
                 QuestInstance.quest_id == quest.id,
-                QuestInstance.quest_date == today,
+                QuestInstance.period_start == period.start,
             )
         )
         if existing is None:
-            get_or_create_instance(db, quest, today)
+            get_or_create_instance(db, quest, period)
             result.spawned_quest_ids.append(quest.id)
 
 
@@ -166,13 +173,13 @@ def _reset_message(result: DailyResetResult) -> str:
     parts = []
     if result.failed_count:
         parts.append(
-            f"{result.failed_count} daily quest"
+            f"{result.failed_count} quest"
             f"{'s' if result.failed_count != 1 else ''} failed "
             f"(-{result.total_exp_lost} EXP)"
         )
     if result.spawned_count:
-        parts.append(f"{result.spawned_count} daily quest(s) issued")
-    return "Daily reset: " + ", ".join(parts) + "."
+        parts.append(f"{result.spawned_count} quest(s) issued")
+    return "Reset: " + ", ".join(parts) + "."
 
 
 def run_daily_reset_for_all(
