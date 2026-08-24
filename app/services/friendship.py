@@ -271,22 +271,22 @@ def _refusal_to_hear(
     """The 422 message for a request that cannot even be put."""
     match reason:
         case "already_friends":
-            return f"{constellation.name} is already your friend."
+            return f"{constellation.code_name} is already your friend."
         case "request_open":
             return (
-                f"{constellation.name} has already set you a trial. "
+                f"{constellation.code_name} has already set you a trial. "
                 "Finish it before asking again."
             )
         case "too_soon":
             when = retry_at(db, player, constellation)
             return (
-                f"{constellation.name} will not hear you again yet"
+                f"{constellation.code_name} will not hear you again yet"
                 + (f"; try after {clock.as_utc(when).isoformat()}." if when else ".")
             )
         case "retired":
-            return f"{constellation.name} no longer answers."
+            return f"{constellation.code_name} no longer answers."
         case _:
-            return f"{constellation.name} will not hear you."
+            return f"{constellation.code_name} will not hear you."
 
 
 def _refuse(
@@ -319,10 +319,10 @@ def _refuse(
         db,
         player,
         EventType.FRIENDSHIP_REFUSED,
-        f"{constellation.name}: {line}" if line else f"{constellation.name} said no.",
+        f"{constellation.code_name}: {line}" if line else f"{constellation.code_name} said no.",
         {
             "constellation": constellation.code,
-            "constellation_name": constellation.name,
+            "constellation_name": constellation.code_name,
             "request_id": request.id,
             "line": line,
             "retry_after": favor.may_ask_after.isoformat(),
@@ -343,7 +343,7 @@ def _challenge(
     entry = challenge_for(constellation.code)
     if entry is None:
         raise ValidationError(
-            f"{constellation.name} has no trial of admission written for it."
+            f"{constellation.code_name} has no trial of admission written for it."
         )
 
     from app.content.broadcasts import as_lines_payload
@@ -472,12 +472,12 @@ def _befriend(
         db,
         player,
         EventType.FRIENDSHIP_FORMED,
-        f"{constellation.name}: {line}"
+        f"{constellation.code_name}: {line}"
         if line
-        else f"{constellation.name} calls you a friend.",
+        else f"{constellation.code_name} calls you a friend.",
         {
             "constellation": constellation.code,
-            "constellation_name": constellation.name,
+            "constellation_name": constellation.code_name,
             "request_id": request.id,
             "line": line,
             "standing": standing.value,
@@ -513,12 +513,12 @@ def _rebuff(
         db,
         player,
         EventType.FRIENDSHIP_FAILED,
-        f"{constellation.name}: {line}"
+        f"{constellation.code_name}: {line}"
         if line
-        else f"{constellation.name} closed your request.",
+        else f"{constellation.code_name} closed your request.",
         {
             "constellation": constellation.code,
-            "constellation_name": constellation.name,
+            "constellation_name": constellation.code_name,
             "request_id": request.id,
             "line": line,
             "retry_after": favor.may_ask_after.isoformat(),
@@ -553,7 +553,7 @@ def end_friendship(
 
     favor = constellations.get_favor(db, player, constellation)
     if not favor.is_friend:
-        raise ValidationError(f"{constellation.name} is not your friend.")
+        raise ValidationError(f"{constellation.code_name} is not your friend.")
 
     favor = constellations.ensure_favor(db, player, constellation)
     favor.is_friend = False
@@ -574,12 +574,12 @@ def end_friendship(
         db,
         player,
         EventType.FRIENDSHIP_ENDED,
-        f"{constellation.name}: {line}"
+        f"{constellation.code_name}: {line}"
         if line
-        else f"You are no longer a friend of {constellation.name}.",
+        else f"You are no longer a friend of {constellation.code_name}.",
         {
             "constellation": constellation.code,
-            "constellation_name": constellation.name,
+            "constellation_name": constellation.code_name,
             "line": line,
             "standing": standing.value,
         },

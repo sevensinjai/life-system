@@ -226,14 +226,32 @@ a row a broadcast points at rather than a name typed into each one.
 Nothing they issue reaches you until you have befriended them, so the pantheon
 screen is where the game actually starts.
 
-| Constellation | Domain | Cares about |
-| ------------- | ------ | ----------- |
-| The Fallen Star | strength | getting up after you did not |
-| The Long Road | agility | distance covered, not destinations |
-| The Empty Bowl | vitality | putting something down for a while |
-| The Silent Library | intelligence | learning a thing well enough to say it |
-| The Unblinking Eye | perception | noticing what you walk past |
-| The Sleepless Lantern | — | coming back, however badly |
+Each has two names. The **code name** is what it is called — a title, grand
+and impersonal, and the name it speaks under. The **real name** is who it was
+before it was a constellation, which is the point of having one: a
+constellation is a title, and the name under the title is the reminder that it
+used to be a person who did the thing it now asks of you.
+
+Both are carried in English and Traditional Chinese, so a client can show
+either or both — 「墜星」 The Fallen Star.
+
+| Code name | 代號 | Real name | 本名 | Domain | Cares about |
+| --------- | ---- | --------- | ---- | ------ | ----------- |
+| The Fallen Star | 「墜星」 | Yue Chen-zhou | 岳沉舟 | strength | getting up after you did not |
+| The Long Road | 「長路」 | Xu Qian-li | 徐千里 | agility | distance covered, not destinations |
+| The Empty Bowl | 「空缽」 | Shi Zhi-zu | 釋知足 | vitality | putting something down for a while |
+| The Silent Library | 「寂靜書閣」 | Lu Bu-yan | 陸不言 | intelligence | learning a thing well enough to say it |
+| The Unblinking Eye | 「不瞬之眼」 | Gu Wei | 顧微 | perception | noticing what you walk past |
+| The Sleepless Lantern | 「不寐之燈」 | Song Chang-ming | 宋長明 | — | coming back, however badly |
+
+`code` in the database (`fallen_star`) is an identifier, not a name: it is
+what survives a rewrite, which is how re-seeding can rename a constellation in
+both scripts without touching a single player's history with it.
+
+Names are the one part of the content that is bilingual today — the voices and
+the trials are still English-only until the localization pass. A name is
+identity rather than prose, and worth showing in both scripts at once; a line
+of dialogue is not.
 
 The trials themselves live in `app/content/broadcasts.py` — three per
 constellation, written to be clearable by anyone, anywhere, with nothing to
@@ -360,10 +378,10 @@ then its default, then the constellation's, then the plain System register. A
 half-written voice degrades to "Side quest complete." rather than to silence,
 so nothing has to be written before it is worth writing.
 
-This is English-only for now. Nothing is interpolated — a line is a finished
-sentence, and every number a client might want is on the payload — so adding
-another language later means another catalog beside this one, not an audit of
-every string in the codebase.
+Prose is English-only for now; names are already bilingual. Nothing is
+interpolated — a line is a finished sentence, and every number a client might
+want is on the payload — so adding another language later means another
+catalog beside this one, not an audit of every string in the codebase.
 
 ## Endpoints
 
@@ -675,6 +693,9 @@ migrations always target the same database the app uses.
   quote changes, which is what a WidgetKit timeline wants for its next reload.
   An empty collection returns `quote: null` rather than a 404, so render a
   prompt to write one instead of an error state.
+- Constellations carry `code_name` and `real_name`, each with a
+  `_zh_hant` twin. Show either, or both together; `code` is an identifier, not
+  something to render.
 - `GET /constellations` backs a "who is watching" screen: the whole pantheon
   with your standing in each, and a safe read — looking at a constellation you
   have never heard from does not start a history with it. Each carries a

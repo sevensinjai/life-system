@@ -444,7 +444,7 @@ def test_a_refusal_is_spoken_in_the_constellations_voice(
         .filter_by(player_id=hunter.id, event_type=EventType.FRIENDSHIP_REFUSED)
         .one()
     )
-    assert event.message.startswith("The Constellation of the Fallen Star: ")
+    assert event.message.startswith("The Fallen Star: ")
     assert event.payload["retry_after"] is not None
 
 

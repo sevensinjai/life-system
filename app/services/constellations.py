@@ -67,36 +67,40 @@ def seed_pantheon(
         voice = as_voice_payload(entry)
 
         if existing is None:
-            db.add(
-                Constellation(
-                    code=entry.code,
-                    name=entry.name,
-                    epithet=entry.epithet,
-                    description=entry.description,
-                    domain=entry.domain,
-                    voice=voice,
-                )
-            )
+            db.add(Constellation(code=entry.code, voice=voice, **_written_fields(entry)))
             result.created.append(entry.code)
             continue
 
-        changed = (
-            existing.name != entry.name
-            or existing.epithet != entry.epithet
-            or existing.description != entry.description
-            or existing.domain != entry.domain
-            or existing.voice != voice
+        written = _written_fields(entry)
+        changed = existing.voice != voice or any(
+            getattr(existing, field) != value for field, value in written.items()
         )
         if changed:
-            existing.name = entry.name
-            existing.epithet = entry.epithet
-            existing.description = entry.description
-            existing.domain = entry.domain
+            for field, value in written.items():
+                setattr(existing, field, value)
             existing.voice = voice
             result.updated.append(entry.code)
 
     db.flush()
     return result
+
+
+def _written_fields(entry: ConstellationEntry) -> dict:
+    """The columns the catalog owns — everything a rewrite may change.
+
+    Named in one place so adding a field to the written pantheon cannot be
+    half-applied: the seeder writes and compares the same set.
+    """
+    return {
+        "code_name": entry.code_name,
+        "code_name_zh_hant": entry.code_name_zh_hant,
+        "real_name": entry.real_name,
+        "real_name_zh_hant": entry.real_name_zh_hant,
+        "epithet": entry.epithet,
+        "epithet_zh_hant": entry.epithet_zh_hant,
+        "description": entry.description,
+        "domain": entry.domain,
+    }
 
 
 def get_by_code(db: Session, code: str) -> Constellation:

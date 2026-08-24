@@ -49,8 +49,12 @@ def _with_standing(
 
     return ConstellationResponse(
         code=constellation.code,
-        name=constellation.name,
+        code_name=constellation.code_name,
+        code_name_zh_hant=constellation.code_name_zh_hant,
+        real_name=constellation.real_name,
+        real_name_zh_hant=constellation.real_name_zh_hant,
         epithet=constellation.epithet,
+        epithet_zh_hant=constellation.epithet_zh_hant,
         description=constellation.description,
         domain=constellation.domain,
         standing=StandingBlock(

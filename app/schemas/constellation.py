@@ -7,13 +7,28 @@ from app.schemas.common import UtcMoment
 
 
 class ConstellationBrief(BaseModel):
-    """Enough to put a name to a broadcast."""
+    """Enough to put a name to a broadcast.
+
+    Both names, in both scripts, because which to show is the client's call —
+    including showing both at once, which is how these are usually written:
+    「墜星」 The Fallen Star.
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     code: str = Field(description="Stable identifier; survives a rename.")
-    name: str
+    code_name: str = Field(description="What it is called: a title.")
+    code_name_zh_hant: str | None = Field(
+        default=None, description="The same title in Traditional Chinese."
+    )
+    real_name: str | None = Field(
+        default=None, description="Who it was before it was a constellation."
+    )
+    real_name_zh_hant: str | None = Field(
+        default=None, description="The same name in Traditional Chinese."
+    )
     epithet: str | None
+    epithet_zh_hant: str | None = None
     domain: StatName | None = Field(
         description="What it cares about. Null for one that cares about the habit itself."
     )
@@ -103,9 +118,15 @@ class ConstellationResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     code: str
-    name: str
+    code_name: str
+    code_name_zh_hant: str | None = None
+    real_name: str | None = None
+    real_name_zh_hant: str | None = None
     epithet: str | None
-    description: str | None
+    epithet_zh_hant: str | None = None
+    description: str | None = Field(
+        default=None, description="English only, until the localization pass."
+    )
     domain: StatName | None
     standing: StandingBlock = Field(
         description=(

@@ -98,7 +98,7 @@ def test_a_rewritten_voice_updates_in_place(db, hunter, pantheon) -> None:
     favor_before = constellations.get_favor(db, hunter, star).favor
 
     entries = tuple(
-        type(entry)(**{**entry.__dict__, "name": "The Star That Fell"})
+        type(entry)(**{**entry.__dict__, "code_name": "The Star That Fell"})
         if entry.code == "fallen_star"
         else entry
         for entry in PANTHEON
@@ -106,7 +106,7 @@ def test_a_rewritten_voice_updates_in_place(db, hunter, pantheon) -> None:
     result = constellations.seed_pantheon(db, entries)
 
     assert result.updated == ["fallen_star"]
-    assert star.name == "The Star That Fell"
+    assert star.code_name == "The Star That Fell"
     assert constellations.get_favor(db, hunter, star).favor == favor_before
 
 
@@ -277,7 +277,7 @@ def test_the_feed_carries_the_voice_and_the_facts(db, hunter, pantheon) -> None:
         .filter_by(player_id=hunter.id, event_type=EventType.SIDE_QUEST_OFFERED)
         .one()
     )
-    assert event.message.startswith("The Constellation of the Sleepless Lantern: ")
+    assert event.message.startswith("The Sleepless Lantern: ")
     assert event.payload["constellation"] == "sleepless_lantern"
     assert event.payload["standing"] == "stranger"
     assert event.payload["title"] == "Come back once more"
@@ -411,13 +411,57 @@ def test_looking_at_the_pantheon_creates_no_history(auth_client, db) -> None:
 
 
 def test_one_constellation_by_code(auth_client, db) -> None:
+    """Both names, in both scripts, so the client picks — or shows both."""
     constellations.seed_pantheon(db)
     db.commit()
 
     body = auth_client.get("/constellations/empty_bowl").json()
 
-    assert body["name"] == "The Constellation of the Empty Bowl"
+    assert body["code_name"] == "The Empty Bowl"
+    assert body["code_name_zh_hant"] == "「空缽」"
+    assert body["real_name"] == "Shi Zhi-zu"
+    assert body["real_name_zh_hant"] == "釋知足"
     assert body["domain"] == "vitality"
+
+
+def test_every_constellation_is_named_in_both_scripts(db) -> None:
+    """A half-translated pantheon would render as a gap on a Chinese client."""
+    constellations.seed_pantheon(db)
+
+    for constellation in constellations.list_constellations(db):
+        assert constellation.code_name, constellation.code
+        assert constellation.code_name_zh_hant, constellation.code
+        assert constellation.real_name, constellation.code
+        assert constellation.real_name_zh_hant, constellation.code
+        assert constellation.epithet_zh_hant, constellation.code
+
+
+def test_names_are_distinct_across_the_pantheon(db) -> None:
+    """Two constellations sharing a name would be a content typo, not a design."""
+    constellations.seed_pantheon(db)
+    found = constellations.list_constellations(db)
+
+    for field in ("code_name", "code_name_zh_hant", "real_name", "real_name_zh_hant"):
+        values = [getattr(c, field) for c in found]
+        assert len(set(values)) == len(values), field
+
+
+def test_a_renamed_constellation_keeps_its_history(db, hunter) -> None:
+    """The code is the identity; the names are content, and content changes."""
+    constellations.seed_pantheon(db)
+    star = constellations.get_by_code(db, "fallen_star")
+    befriend(db, hunter, star, when=NOW)
+
+    entries = tuple(
+        type(entry)(**{**entry.__dict__, "real_name_zh_hant": "岳無咎"})
+        if entry.code == "fallen_star"
+        else entry
+        for entry in PANTHEON
+    )
+    constellations.seed_pantheon(db, entries)
+
+    assert star.real_name_zh_hant == "岳無咎"
+    assert constellations.get_favor(db, hunter, star).is_friend is True
 
 
 def test_an_unknown_code_is_a_404(auth_client, db) -> None:

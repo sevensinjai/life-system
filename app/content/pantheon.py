@@ -30,11 +30,25 @@ from app.models.enums import StatName
 
 @dataclass(frozen=True)
 class ConstellationEntry:
-    """One constellation as written, before it becomes a row."""
+    """One constellation as written, before it becomes a row.
+
+    `code` is the identifier the database and the catalogs agree on, not a
+    name. The names are the two below it: the **code name** it is called by,
+    and the **real name** it had when it was somebody. Both are given in
+    English and Traditional Chinese.
+
+    The real names are ordinary personal names on purpose. A constellation is
+    a title; the name under the title is the reminder that it used to be a
+    person who did the thing it now asks of you.
+    """
 
     code: str
-    name: str
+    code_name: str
+    code_name_zh_hant: str
+    real_name: str
+    real_name_zh_hant: str
     epithet: str
+    epithet_zh_hant: str
     description: str
     domain: StatName | None = None
     voice: dict[str, dict[str, list[str]]] = field(default_factory=dict)
@@ -59,8 +73,12 @@ SYSTEM_VOICE: dict[str, dict[str, list[str]]] = {
 PANTHEON: tuple[ConstellationEntry, ...] = (
     ConstellationEntry(
         code="fallen_star",
-        name="The Constellation of the Fallen Star",
+        code_name="The Fallen Star",
+        code_name_zh_hant="「墜星」",
+        real_name="Yue Chen-zhou",
+        real_name_zh_hant="岳沉舟",
         epithet="who fell, and stood up anyway",
+        epithet_zh_hant="墜而復起者",
         description=(
             "It fell a long way and took a long time getting up, and it has "
             "no patience at all for anyone who talks about how far they fell. "
@@ -96,8 +114,12 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
     ),
     ConstellationEntry(
         code="long_road",
-        name="The Constellation of the Long Road",
+        code_name="The Long Road",
+        code_name_zh_hant="「長路」",
+        real_name="Xu Qian-li",
+        real_name_zh_hant="徐千里",
         epithet="who is still walking",
+        epithet_zh_hant="行而未至者",
         description=(
             "It has never arrived anywhere and does not expect to. It is "
             "interested in distance covered, not in destinations, and it "
@@ -125,8 +147,12 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
     ),
     ConstellationEntry(
         code="empty_bowl",
-        name="The Constellation of the Empty Bowl",
+        code_name="The Empty Bowl",
+        code_name_zh_hant="「空缽」",
+        real_name="Shi Zhi-zu",
+        real_name_zh_hant="釋知足",
         epithet="who is not hungry",
+        epithet_zh_hant="無所求者",
         description=(
             "It gave up wanting things a long time ago and found the quiet on "
             "the other side of that worth having. It offers trials of "
@@ -151,8 +177,12 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
     ),
     ConstellationEntry(
         code="silent_library",
-        name="The Constellation of the Silent Library",
+        code_name="The Silent Library",
+        code_name_zh_hant="「寂靜書閣」",
+        real_name="Lu Bu-yan",
+        real_name_zh_hant="陸不言",
         epithet="who has read everything and says little",
+        epithet_zh_hant="讀盡萬卷而寡言者",
         description=(
             "It collects what people learn and files it somewhere nobody has "
             "seen. It speaks in short sentences because it thinks most "
@@ -180,8 +210,12 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
     ),
     ConstellationEntry(
         code="unblinking_eye",
-        name="The Constellation of the Unblinking Eye",
+        code_name="The Unblinking Eye",
+        code_name_zh_hant="「不瞬之眼」",
+        real_name="Gu Wei",
+        real_name_zh_hant="顧微",
         epithet="who has not looked away since",
+        epithet_zh_hant="未嘗移目者",
         description=(
             "It notices. That is the entire thing it does. It finds people "
             "who go through their days without seeing them and it makes them "
@@ -206,8 +240,12 @@ PANTHEON: tuple[ConstellationEntry, ...] = (
     ),
     ConstellationEntry(
         code="sleepless_lantern",
-        name="The Constellation of the Sleepless Lantern",
+        code_name="The Sleepless Lantern",
+        code_name_zh_hant="「不寐之燈」",
+        real_name="Song Chang-ming",
+        real_name_zh_hant="宋長明",
         epithet="who keeps the light on",
+        epithet_zh_hant="長明不熄者",
         description=(
             "It does not care what you are doing, only that you came back to "
             "it. It has no domain and no ambition; it burns all night for "

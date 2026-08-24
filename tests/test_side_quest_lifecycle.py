@@ -87,7 +87,7 @@ def test_a_broadcast_lands_in_the_system_log(db, hunter, offer) -> None:
     """The feed carries the constellation's voice, with the facts alongside."""
     announcement = events_of(db, hunter, EventType.SIDE_QUEST_OFFERED)[0]
 
-    assert announcement.message.startswith("The Constellation of the Fallen Star: ")
+    assert announcement.message.startswith("The Fallen Star: ")
     assert announcement.payload["constellation"] == "fallen_star"
     assert announcement.payload["title"] == "Slay ten shadows"
     assert announcement.payload["penalty_exp"] == 100

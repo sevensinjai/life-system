@@ -57,12 +57,29 @@ class Constellation(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Stable slug the catalog and the seed script agree on, e.g. "fallen_star".
-    # Names and voices get rewritten; this is what survives an edit.
+    # Not a name — an identifier. Names get rewritten; this survives the edit.
     code: Mapped[str] = mapped_column(String(64), unique=True, index=True)
 
-    name: Mapped[str] = mapped_column(String(120))
+    # Two names, because a constellation has two.
+    #
+    # The **code name** is what it is called: a title, grand and impersonal,
+    # the thing that appears when it speaks. The **real name** is who it was
+    # before it was a constellation — a person's name, which is the point of
+    # having one at all.
+    #
+    # Both are carried in English and Traditional Chinese. Names are the one
+    # part of this content that is bilingual today: the voices and the trials
+    # are still English-only until the localization pass, but a name is
+    # identity rather than prose, and a client may reasonably want to show
+    # both at once — 「墜星」 The Fallen Star — rather than pick one.
+    code_name: Mapped[str] = mapped_column(String(120))
+    code_name_zh_hant: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    real_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    real_name_zh_hant: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
     # The line under the name — "who fell, and stood up anyway".
     epithet: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    epithet_zh_hant: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # What it cares about. Null for one that cares about the habit itself
@@ -92,7 +109,7 @@ class Constellation(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Constellation code={self.code!r} name={self.name!r}>"
+        return f"<Constellation code={self.code!r} name={self.code_name!r}>"
 
 
 class ConstellationFavor(Base):

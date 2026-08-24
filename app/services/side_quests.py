@@ -518,7 +518,7 @@ def _narrate(
     line = constellations.line_for(
         side_quest, constellation, kind, standing, seed=seed
     )
-    name = constellation.name if constellation else None
+    name = constellation.code_name if constellation else None
     message = f"{name}: {line}" if name and line else (line or side_quest.title)
 
     return message, {
