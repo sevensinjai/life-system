@@ -1,11 +1,17 @@
 """Application factory and the ASGI entrypoint."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, get_settings
 from app.errors import register_error_handlers
 from app.routers import auth, health, players, quests, quotes, system
+
+WEB_CLIENT_DIR = Path(__file__).parent / "web"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -47,7 +53,31 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(quotes.router)
     app.include_router(system.router)
 
+    if settings.web_client:
+        mount_web_client(app)
+
     return app
+
+
+def mount_web_client(app: FastAPI) -> None:
+    """Serve the browser client at /web, and send / to it.
+
+    The iOS app is the real client; this is a hand-testing stand-in for it.
+    Static files only — no build step and no server-side rendering — so it
+    ships with the API and talks to it over the same public endpoints.
+    """
+    if not WEB_CLIENT_DIR.is_dir():  # pragma: no cover - a trimmed install
+        return
+
+    @app.get("/", include_in_schema=False)
+    async def web_client_root() -> RedirectResponse:
+        return RedirectResponse("/web/")
+
+    app.mount(
+        "/web",
+        StaticFiles(directory=WEB_CLIENT_DIR, html=True),
+        name="web",
+    )
 
 
 app = create_app()

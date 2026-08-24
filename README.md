@@ -12,7 +12,8 @@ something.
 You also keep a collection of **motivational quotes** you write yourself, and
 the System puts one of them on your lock screen each day.
 
-Built backend-first so an iOS client can sit on top of it.
+Built backend-first so an iOS client can sit on top of it, with a
+[web client](#web-client) served alongside the API for testing it by hand.
 
 ## Setup
 
@@ -31,6 +32,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
+- Web client: http://127.0.0.1:8000/web/ (or just http://127.0.0.1:8000/)
 - Interactive docs: http://127.0.0.1:8000/docs
 - OpenAPI schema: http://127.0.0.1:8000/openapi.json
 
@@ -154,6 +156,38 @@ the original anchor, so re-tuning a quest does not silently restart its cycle.
 | `POST` | `/system/daily-reset` | Roll periods over: lapse the closed, open the due |
 | `GET`  | `/system/events` | The notification feed (`?event_type=`, `?limit=`, `?offset=`) |
 | `GET`  | `/system/penalties` | Every EXP loss on record |
+
+## Web client
+
+The iOS app is the real client. Until it exists — and afterwards, when you want
+to see what the API actually returns — the same server hosts a browser one at
+`/web`, and `/` redirects to it.
+
+```bash
+uvicorn app.main:app --reload   # then open http://127.0.0.1:8000/
+```
+
+It covers every endpoint on this page: register and log in, the status window
+and stat allocation, authoring and editing quests on any schedule, logging
+progress, clearing quests, the quote collection and today's pick, the daily
+reset, the event feed, and the penalty ledger. A **Requests** tab lists every
+call the page has made with its JSON, its status, and how long it took, so a
+failure is legible without opening devtools.
+
+Two things worth knowing:
+
+- **It is static files** — plain HTML, CSS, and ES modules under `app/web`,
+  with no build step, no bundler, and no dependency to install. It talks to the
+  API over the same public HTTP endpoints the app will, so what works here works
+  there.
+- **The API field in the header retargets it.** Leave it blank to use the server
+  that served the page; point it at another host to drive a deployed backend
+  from a local page. That is a cross-origin request, so the target's
+  `APP_CORS_ORIGINS` has to allow this page's origin.
+
+The token lives in the browser's local storage, so a reload keeps you signed in.
+Set `APP_WEB_CLIENT=false` to leave the client out of a deployment entirely; the
+mount and the `/` redirect both disappear with it.
 
 ## How progression works
 
@@ -304,6 +338,7 @@ app/
     clock.py           # timezone-aware date handling
     status.py          # building the status window
   routers/             # health, auth, players, quests, quotes, system
+  web/                 # the browser client: index.html + static/ ES modules
 alembic/               # migrations
 scripts/daily_reset.py # cron entrypoint
 tests/
@@ -338,6 +373,7 @@ Settings load from environment variables prefixed `APP_`, or from `.env`.
 | `APP_JWT_SECRET` | dev placeholder | **Required in production** |
 | `APP_ACCESS_TOKEN_EXPIRE_MINUTES` | `20160` (14 days) | Long, since it is a phone app |
 | `APP_CORS_ORIGINS` | `["*"]` | Narrow before deploying |
+| `APP_WEB_CLIENT` | `true` | Serve the browser client at `/web` |
 | `APP_EXP_CURVE_BASE` | `100` | EXP for level 1 → 2 |
 | `APP_EXP_CURVE_EXPONENT` | `1.5` | How steeply the curve climbs |
 | `APP_STAT_POINTS_PER_LEVEL` | `3` | Points granted per level |

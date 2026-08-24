@@ -31,6 +31,10 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["*"]
 
+    # The browser test client served at /web. Off is a reasonable choice for a
+    # production deployment whose only client is the app.
+    web_client: bool = True
+
     database_url: str = "sqlite:///./system.db"
 
     jwt_secret: str = DEV_JWT_SECRET
