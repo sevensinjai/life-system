@@ -17,7 +17,8 @@ of its own — the same one it broadcast to every other player who opted in.
 Those come from **constellations**, who send only to the players they have
 agreed to befriend, and who remember what you did with the last one.
 
-Built backend-first so an iOS client can sit on top of it.
+Built backend-first so an iOS client can sit on top of it, with a
+[web client](#web-client) served alongside the API for testing it by hand.
 
 ## Setup
 
@@ -36,6 +37,7 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
+- Web client: http://127.0.0.1:8000/ (after `cd web && npm run build`)
 - Interactive docs: http://127.0.0.1:8000/docs
 - OpenAPI schema: http://127.0.0.1:8000/openapi.json
 
@@ -431,6 +433,62 @@ every string in the codebase.
 | `GET`  | `/system/events` | The notification feed (`?event_type=`, `?limit=`, `?offset=`) |
 | `GET`  | `/system/penalties` | Every EXP loss on record |
 
+## Web client
+
+The iOS app is the real client. Until it exists — and afterwards, when you want
+to see what the API actually returns — there is a React client in
+[`web/`](web/README.md) that covers every endpoint on this page.
+
+It is **a phone UI**: one column at phone width, a bottom tab bar, and sheets
+rather than side-by-side panels, so what you are testing looks like what the
+app will be. On a desktop browser it sits centred at phone width instead of
+reflowing. The dev server listens on the local network, so a real phone on the
+same Wi-Fi can open it.
+
+```bash
+cd web
+npm install
+npm run dev     # http://localhost:5173, proxying the API on :8000
+```
+
+Run it against `uvicorn app.main:app --reload` in another shell. For a
+single-process setup, build it once and the API serves it at `/web`, with `/`
+redirecting there:
+
+```bash
+cd web && npm run build      # emits web/dist
+uvicorn app.main:app         # http://127.0.0.1:8000/
+```
+
+`web/dist` is a build artifact and is not committed, so a fresh clone needs
+that build before the API has anything to serve; without it the mount is
+skipped and the API runs as usual.
+
+It covers register and log in, the status window and stat allocation,
+authoring and editing quests on any schedule, logging progress, clearing
+quests, the quote collection and today's pick, the daily reset, the event feed,
+and the penalty ledger. The **System** tab also lists every call the page has
+made with its JSON, its status, and how long it took, so a failure is legible
+without opening devtools.
+
+Two things worth knowing:
+
+- **The API target lives behind the gear icon.** Leave it blank to use the
+  server that served the page; point it at another host to drive a deployed
+  backend from a local page. That is a cross-origin request, so the target's
+  `APP_CORS_ORIGINS` has to allow this page's origin.
+- **The client talks to the API over the same public endpoints the app will**,
+  so what works there works here. Nothing is rendered server-side and no route
+  exists for its benefit.
+
+The token lives in the browser's local storage, so a reload keeps you signed
+in. Set `APP_WEB_CLIENT=false` to leave the client out of a deployment
+entirely; the mount and the `/` redirect both disappear with it.
+
+React 19, Vite, Tailwind v4, shadcn/ui, and TanStack Query — see
+[`web/README.md`](web/README.md) for the layout, and for which parts are meant
+to be shared with a React Native client.
+
 ## How progression works
 
 **The EXP curve.** Advancing from level *N* costs `100 × N^1.5`, rounded to a
@@ -591,6 +649,7 @@ app/
     status.py          # building the status window
   routers/             # health, auth, players, quests, quotes, side-quests, constellations, system
 alembic/               # migrations
+web/                   # the React client (see web/README.md)
 scripts/               # entrypoints: daily_reset, seed_pantheon,
                        #   schedule_side_quest, broadcast_side_quests
 tests/
@@ -626,6 +685,7 @@ Settings load from environment variables prefixed `APP_`, or from `.env`.
 | `APP_JWT_SECRET` | dev placeholder | **Required in production** |
 | `APP_ACCESS_TOKEN_EXPIRE_MINUTES` | `20160` (14 days) | Long, since it is a phone app |
 | `APP_CORS_ORIGINS` | `["*"]` | Narrow before deploying |
+| `APP_WEB_CLIENT` | `true` | Serve the built web client at `/web` |
 | `APP_EXP_CURVE_BASE` | `100` | EXP for level 1 → 2 |
 | `APP_EXP_CURVE_EXPONENT` | `1.5` | How steeply the curve climbs |
 | `APP_STAT_POINTS_PER_LEVEL` | `3` | Points granted per level |

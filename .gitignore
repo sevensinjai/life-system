@@ -10,3 +10,7 @@ build/
 dist/
 system.db
 *.db
+
+# Web client
+web/node_modules/
+web/dist/

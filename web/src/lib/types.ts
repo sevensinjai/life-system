@@ -1,0 +1,204 @@
+/**
+ * The API's response shapes, mirroring app/schemas on the server.
+ *
+ * Hand-written rather than generated so the client stays dependency-free and
+ * readable; `/openapi.json` is the source of truth if the two ever disagree.
+ */
+
+export type ScheduleKind = "once" | "daily" | "weekdays" | "interval" | "weekly"
+export type QuestDifficulty = "E" | "D" | "C" | "B" | "A" | "S"
+export type QuestStatus = "active" | "completed" | "failed"
+export type StatName =
+  | "strength"
+  | "agility"
+  | "vitality"
+  | "intelligence"
+  | "perception"
+export type EventType =
+  | "quest_created"
+  | "quest_progress"
+  | "quest_completed"
+  | "quest_failed"
+  | "level_up"
+  | "stats_allocated"
+  | "penalty_applied"
+  | "daily_reset"
+
+export const DIFFICULTIES: QuestDifficulty[] = ["E", "D", "C", "B", "A", "S"]
+export const SCHEDULE_KINDS: ScheduleKind[] = [
+  "once",
+  "daily",
+  "weekdays",
+  "interval",
+  "weekly",
+]
+export const STAT_NAMES: StatName[] = [
+  "strength",
+  "agility",
+  "vitality",
+  "intelligence",
+  "perception",
+]
+export const EVENT_TYPES: EventType[] = [
+  "quest_created",
+  "quest_progress",
+  "quest_completed",
+  "quest_failed",
+  "level_up",
+  "stats_allocated",
+  "penalty_applied",
+  "daily_reset",
+]
+/** 0 is Monday, matching the API. */
+export const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+export interface Health {
+  status: string
+  service: string
+  version: string
+  environment: string
+}
+
+export interface TokenResponse {
+  access_token: string
+  token_type: string
+  expires_in: number
+}
+
+export interface Account {
+  id: number
+  email: string
+  created_at: string
+}
+
+export interface StatBlock {
+  strength: number
+  agility: number
+  vitality: number
+  intelligence: number
+  perception: number
+}
+
+export interface PlayerStatus {
+  id: number
+  name: string
+  level: number
+  exp: number
+  exp_to_next_level: number
+  exp_progress: number
+  total_exp_earned: number
+  stat_points: number
+  stats: StatBlock
+  timezone: string
+}
+
+export interface ScheduleSpec {
+  kind: ScheduleKind
+  days?: number[] | null
+  interval_days?: number | null
+  anchor?: string | null
+  week_start?: number
+}
+
+export interface ScheduleResponse extends ScheduleSpec {
+  week_start: number
+  label: string
+}
+
+export interface QuestInstance {
+  id: number
+  quest_id: number
+  period_start: string
+  period_end: string | null
+  progress: number
+  target_count: number
+  status: QuestStatus
+  completed_at: string | null
+}
+
+export interface Quest {
+  id: number
+  title: string
+  description: string | null
+  schedule: ScheduleResponse
+  difficulty: QuestDifficulty
+  target_count: number
+  unit: string | null
+  exp_reward: number
+  stat_reward: StatName | null
+  stat_reward_amount: number
+  is_active: boolean
+  created_at: string
+  current_instance: QuestInstance | null
+  next_due_date: string | null
+}
+
+export interface QuestAction {
+  quest: Quest
+  instance: QuestInstance
+  completed: boolean
+  exp_gained: number
+  leveled_up: boolean
+}
+
+export interface QuestPayload {
+  title: string
+  description?: string | null
+  schedule: ScheduleSpec
+  difficulty: QuestDifficulty
+  target_count: number
+  unit?: string | null
+  exp_reward?: number
+  stat_reward?: StatName | null
+  stat_reward_amount: number
+  is_active?: boolean
+}
+
+export interface Quote {
+  id: number
+  text: string
+  author: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface QuoteDraft {
+  text: string
+  author?: string | null
+}
+
+export interface BulkQuoteResult {
+  created: Quote[]
+  created_count: number
+  skipped_count: number
+  skipped: string[]
+}
+
+export interface DailyQuote {
+  local_date: string
+  quote: Quote | null
+  pool_size: number
+  refresh_after: string
+}
+
+export interface SystemEvent {
+  id: number
+  event_type: EventType
+  message: string
+  payload: Record<string, unknown>
+  created_at: string
+}
+
+export interface Penalty {
+  id: number
+  reason: string
+  exp_lost: number
+  created_at: string
+}
+
+export interface DailyReset {
+  reset_date: string
+  failed_count: number
+  spawned_count: number
+  total_exp_lost: number
+}

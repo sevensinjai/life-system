@@ -1,7 +1,11 @@
 """Application factory and the ASGI entrypoint."""
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.config import Settings, get_settings
 from app.errors import register_error_handlers
@@ -15,6 +19,9 @@ from app.routers import (
     side_quests,
     system,
 )
+
+# The built client (web/dist), produced by `npm run build` in web/.
+WEB_CLIENT_DIR = Path(__file__).resolve().parent.parent / "web" / "dist"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -58,7 +65,33 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(constellations.router)
     app.include_router(system.router)
 
+    if settings.web_client:
+        mount_web_client(app)
+
     return app
+
+
+def mount_web_client(app: FastAPI) -> None:
+    """Serve the built browser client at /web, and send / to it.
+
+    The iOS app is the real client; this is a hand-testing stand-in for it,
+    talking to the API over the same public endpoints. It is a React build
+    rather than something rendered here, so the mount is skipped when
+    web/dist is absent — run `npm run build` in web/, or use the Vite dev
+    server, which proxies the API instead.
+    """
+    if not WEB_CLIENT_DIR.is_dir():
+        return
+
+    @app.get("/", include_in_schema=False)
+    async def web_client_root() -> RedirectResponse:
+        return RedirectResponse("/web/")
+
+    app.mount(
+        "/web",
+        StaticFiles(directory=WEB_CLIENT_DIR, html=True),
+        name="web",
+    )
 
 
 app = create_app()
