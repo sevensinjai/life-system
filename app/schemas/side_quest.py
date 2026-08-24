@@ -10,8 +10,10 @@ from app.models.enums import (
     SideQuestFrequency,
     SideQuestOfferStatus,
     SideQuestStatus,
+    Standing,
     StatName,
 )
+from app.schemas.constellation import ConstellationBrief
 from app.services.clock import as_utc
 
 # Side quest windows are absolute instants, and a client that reads a deadline
@@ -81,9 +83,11 @@ class SideQuestResponse(BaseModel):
 
     id: int
     title: str
-    description: str | None
-    herald: str | None = Field(
-        description="Who issued it, if the System named itself."
+    description: str | None = Field(
+        description="The announcement: what the constellation said when it went out."
+    )
+    constellation: ConstellationBrief | None = Field(
+        default=None, description="Who issued it. Null for the System itself."
     )
     difficulty: QuestDifficulty
     target_count: int
@@ -97,6 +101,10 @@ class SideQuestResponse(BaseModel):
     status: SideQuestStatus
     broadcast_at: UtcMoment
     expires_at: UtcMoment | None
+    min_standing: Standing | None = Field(
+        default=None,
+        description="The standing this trial was reserved for, if it was reserved.",
+    )
 
 
 class SideQuestOfferResponse(BaseModel):

@@ -15,7 +15,7 @@ from app.models import (
     User,
 )
 from app.security import hash_password
-from app.services import side_quests
+from app.services import constellations, side_quests
 from app.services.daily import run_daily_reset
 
 NOW = datetime(2026, 8, 24, 12, tzinfo=UTC)
@@ -36,12 +36,19 @@ def hunter(db) -> Player:
 
 
 @pytest.fixture
-def offer(db, hunter):
+def fallen_star(db):
+    """The pantheon, seeded, and the constellation these trials come from."""
+    constellations.seed_pantheon(db)
+    return constellations.get_by_code(db, "fallen_star")
+
+
+@pytest.fixture
+def offer(db, hunter, fallen_star):
     """One open offer, worth 200 EXP with a 100 EXP penalty for dropping it."""
     side_quest = side_quests.create_side_quest(
         db,
         title="Slay ten shadows",
-        herald="The Constellation of the Fallen Star",
+        constellation=fallen_star,
         target_count=10,
         unit="shadows",
         exp_reward=200,
@@ -70,9 +77,12 @@ def events_of(db, player, event_type) -> list[SystemEvent]:
 
 
 def test_a_broadcast_lands_in_the_system_log(db, hunter, offer) -> None:
+    """The feed carries the constellation's voice, with the facts alongside."""
     announcement = events_of(db, hunter, EventType.SIDE_QUEST_OFFERED)[0]
 
-    assert "The Constellation of the Fallen Star" in announcement.message
+    assert announcement.message.startswith("The Constellation of the Fallen Star: ")
+    assert announcement.payload["constellation"] == "fallen_star"
+    assert announcement.payload["title"] == "Slay ten shadows"
     assert announcement.payload["penalty_exp"] == 100
 
 

@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.models import QuestDifficulty
-from app.services import side_quests
+from app.services import constellations, side_quests
 
 NOW = datetime(2026, 8, 24, 12, tzinfo=UTC)
 
@@ -17,10 +17,11 @@ def broadcast(db, auth_client):
     Broadcast before anyone opts in, so the catch-up path is what delivers it —
     which is the path a real late opt-in takes.
     """
+    constellations.seed_pantheon(db)
     side_quest = side_quests.create_side_quest(
         db,
         title="Slay ten shadows",
-        herald="The Constellation of the Fallen Star",
+        constellation=constellations.get_by_code(db, "fallen_star"),
         difficulty=QuestDifficulty.C,
         target_count=10,
         unit="shadows",

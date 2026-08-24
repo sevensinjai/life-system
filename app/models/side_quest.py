@@ -25,9 +25,10 @@ opting in is not optional.
 """
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     Enum,
@@ -46,11 +47,13 @@ from app.models.enums import (
     SideQuestFrequency,
     SideQuestOfferStatus,
     SideQuestStatus,
+    Standing,
     StatName,
 )
 from app.services.clock import as_utc
 
 if TYPE_CHECKING:
+    from app.models.constellation import Constellation
     from app.models.player import Player
 
 
@@ -67,10 +70,23 @@ class SideQuest(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
 
     title: Mapped[str] = mapped_column(String(200))
+    # The announcement body: what the constellation actually says when this
+    # goes out.
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Who is speaking — the constellation, god, or whatever issued this. Free
-    # text for now; the story layer will decide what these actually are.
-    herald: Mapped[str | None] = mapped_column(String(120), nullable=True)
+
+    # Who issued it. Null for a broadcast from the System itself, with no one
+    # behind it.
+    constellation_id: Mapped[int | None] = mapped_column(
+        ForeignKey("constellations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    # Which catalog entry this was written from, so the scheduler can avoid
+    # sending the same trial twice in a row. Null for one written by hand.
+    catalog_code: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+    # Per-broadcast overrides for the constellation's standard lines, keyed the
+    # same way its voice is: {line kind: {standing or "default": [lines]}}.
+    lines: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     difficulty: Mapped[QuestDifficulty] = mapped_column(
         Enum(QuestDifficulty, native_enum=False, length=2), default=QuestDifficulty.E
@@ -106,11 +122,19 @@ class SideQuest(Base):
     # Audience bounds, so an S-rank trial can skip level 2 players outright.
     min_level: Mapped[int] = mapped_column(Integer, default=1)
     max_level: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # And a standing bound, so a constellation can keep a trial for players who
+    # have earned its attention. Null offers it to anyone.
+    min_standing: Mapped[Standing | None] = mapped_column(
+        Enum(Standing, native_enum=False, length=16), nullable=True
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
+    constellation: Mapped["Constellation | None"] = relationship(
+        back_populates="side_quests"
+    )
     offers: Mapped[list["SideQuestOffer"]] = relationship(
         back_populates="side_quest", cascade="all, delete-orphan"
     )

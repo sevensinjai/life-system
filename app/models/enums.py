@@ -78,6 +78,23 @@ class SideQuestOfferStatus(StrEnum):
     WITHDRAWN = "withdrawn"  # the broadcast itself was cancelled
 
 
+class Standing(StrEnum):
+    """Where a player sits in one constellation's regard.
+
+    Standing is a story value, never a mechanical punishment: it decides how a
+    constellation speaks to you and what it is willing to send you, and it can
+    never take EXP, levels, or stats. The worst a constellation can do is stop
+    finding you interesting.
+    """
+
+    FORSAKEN = "forsaken"    # it has written you off
+    SLIGHTED = "slighted"    # you have let it down more than once
+    STRANGER = "stranger"    # it does not know you yet; where everyone starts
+    NOTICED = "noticed"      # it has begun to watch
+    FAVORED = "favored"      # it speaks to you directly
+    CHAMPION = "champion"    # you are the one it points to
+
+
 class SideQuestFrequency(StrEnum):
     """How often a player wants the sky to interrupt them.
 
@@ -137,3 +154,21 @@ SIDE_QUEST_OFFERS_PER_WEEK: dict[SideQuestFrequency, int] = {
     SideQuestFrequency.OCCASIONAL: 3,
     SideQuestFrequency.FREQUENT: 7,
 }
+
+
+# The favor a standing band begins at, from worst to best. A band runs from
+# its own threshold up to the next one, which is what makes `standing_for`
+# a lookup rather than a chain of comparisons.
+STANDING_THRESHOLDS: tuple[tuple[int, Standing], ...] = (
+    (-100, Standing.FORSAKEN),
+    (-20, Standing.SLIGHTED),
+    (0, Standing.STRANGER),
+    (10, Standing.NOTICED),
+    (30, Standing.FAVORED),
+    (75, Standing.CHAMPION),
+)
+
+# Favor is clamped to this range, so a long history cannot put a player so far
+# out of reach that a change of behaviour stops registering.
+MIN_FAVOR = -100
+MAX_FAVOR = 100
