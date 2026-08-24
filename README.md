@@ -14,6 +14,8 @@ the System puts one of them on your lock screen each day.
 
 And if you want it to, the System will occasionally hand you a **side quest**
 of its own — the same one it broadcast to every other player who opted in.
+Those come from **constellations**, who send only to the players they have
+agreed to befriend, and who remember what you did with the last one.
 
 Built backend-first so an iOS client can sit on top of it.
 
@@ -116,8 +118,9 @@ the original anchor, so re-tuning a quest does not silently restart its cycle.
 
 Quests are yours: you write them, you tune them, nobody else sees them. A
 **side quest** is the opposite — the System issues one to everybody at once,
-authored by whatever is on the other end of the broadcast (a constellation, a
-god; the story layer will say). You choose whether any of it reaches you.
+on behalf of one of the [constellations](#the-constellations). You choose
+whether any of it reaches you, twice over: once by opting in at all, and once
+by [befriending](#befriending-a-constellation) the constellation that sent it.
 
 ### Opting in
 
@@ -189,17 +192,178 @@ only branch with teeth is the one you deliberately walked into.
 
 ### Getting broadcasts out
 
-A side quest is authored SCHEDULED and sits there until something dispatches
-it. `scripts/broadcast_side_quests.py` is that something — put it on the same
-cron as the daily reset:
+Three steps, deliberately separate: *what* goes out, *when* it goes out, and
+*how it ends*.
 
 ```bash
+# once at setup, and after any edit to the written pantheon
+.venv/bin/python -m scripts.seed_pantheon
+
+# daily: put the next written trial on the calendar, if the sky is quiet
+0 9 * * * cd /srv/system && .venv/bin/python -m scripts.schedule_side_quest
+
+# often: put scheduled trials in front of the players they are meant for
 */15 * * * * cd /srv/system && .venv/bin/python -m scripts.broadcast_side_quests
 ```
+
+`schedule_side_quest` does nothing while a broadcast is still open, so trials
+arrive one at a time rather than three at once, and it walks the catalog in
+rotation — everything written is seen before anything repeats, with a 30-day
+rest before a trial can come round again. Pass a catalog code to send a
+specific one instead.
 
 Offers are settled per player by `POST /system/daily-reset`, which the app
 already calls on launch: unanswered offers expire for free, accepted ones that
 fell short fail and pay their penalty.
+
+## The constellations
+
+A side quest comes from somebody. The pantheon is six of them, each with a
+domain it cares about and a voice of its own — written by hand in
+`app/content/pantheon.py` and seeded into the database, so a constellation is
+a row a broadcast points at rather than a name typed into each one.
+
+Nothing they issue reaches you until you have befriended them, so the pantheon
+screen is where the game actually starts.
+
+| Constellation | Domain | Cares about |
+| ------------- | ------ | ----------- |
+| The Fallen Star | strength | getting up after you did not |
+| The Long Road | agility | distance covered, not destinations |
+| The Empty Bowl | vitality | putting something down for a while |
+| The Silent Library | intelligence | learning a thing well enough to say it |
+| The Unblinking Eye | perception | noticing what you walk past |
+| The Sleepless Lantern | — | coming back, however badly |
+
+The trials themselves live in `app/content/broadcasts.py` — three per
+constellation, written to be clearable by anyone, anywhere, with nothing to
+buy. Each constellation also has one **trial of admission** in
+`app/content/challenges.py`: the smallest true test of what it cares about,
+set for whoever asks to be befriended.
+
+### Befriending a constellation
+
+A constellation issues trials to its friends and to nobody else, so opting in
+is only half of it: until you have befriended somebody, nothing arrives. You
+do not join a constellation — you ask, and it decides.
+
+```bash
+curl -X POST localhost:8000/constellations/fallen_star/friendship \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{ "message": "I fell too." }'
+```
+
+The answer comes back at once, and it is one of two things:
+
+**Refused.** It would not hear you this time. `retry_after` says when you may
+ask again — seven days by default (`APP_FRIENDSHIP_RETRY_DAYS`).
+
+**Challenged.** It set you a **trial of admission**, which arrives as an
+ordinary side quest: accept it, log progress, complete it through the same
+endpoints as anything else. Clear it and you are friends. Fail it, decline it,
+or let it lapse and the request closes with the same seven-day wait.
+
+```
+The Constellation of the Fallen Star: Not today. Ask me again when you have done something.
+    ... seven days later ...
+The Constellation of the Fallen Star: You asked. Twenty, then. Now.
+The Constellation of the Fallen Star: Fine. You are one of mine. (+100 EXP)
+```
+
+Three things the trial of admission deliberately is not. It carries **no
+penalty** — a stranger who fails an audition has lost the audition, which is
+enough. It does not **spend your weekly cap**, because you asked for it and
+the cap rations interruptions. And it is **addressed, not broadcast**: nobody
+else can see it or be handed it.
+
+Ending a friendship is a `DELETE` on the same path. Its trials stop reaching
+you; your standing is left exactly where it stood, because the history
+happened; and coming back waits out the same seven days, so this is not a
+switch to flip twice a day. Anything you already accepted stays yours to
+finish.
+
+Every request is kept, refusals included — it is the record of how you got in.
+
+#### Who decides, and how
+
+Whether a request is heard is one function behind a protocol:
+
+```python
+class Arbiter(Protocol):
+    def __call__(self, petition: Petition) -> Verdict: ...
+```
+
+Today that is `ChanceArbiter` — it hears `APP_FRIENDSHIP_ACCEPT_RATE` of
+requests (30% by default) and reads nothing. It is a placeholder with the
+manners of a real one: it takes the whole `Petition` and returns a `Verdict`
+with a reason, both of which are stored. So the arbiter that actually *reads*
+a request — the player's history, their standing with this constellation, what
+they wrote in `message`, what the constellation cares about — is one callable,
+with no call sites to change and a `verdict_reason` column already waiting for
+its words.
+
+At 30% with a seven-day wait, befriending one constellation takes about three
+weeks on average, and an unlucky player can wait considerably longer. Both
+numbers are settings for exactly that reason.
+
+### Standing
+
+Each constellation keeps a favor score on you, and the band that score falls
+into is your **standing** with it: `forsaken`, `slighted`, `stranger`,
+`noticed`, `favored`, `champion`. Everyone starts a stranger.
+
+| What you did | Favor |
+| ------------ | ----- |
+| Cleared its trial | +3, and more the harder the rank (up to +13 at S) |
+| Accepted, then let it lapse | −2, and worse the harder the rank |
+| Declined it | −1, whatever the rank — you passed on the interruption, not the difficulty |
+| Never answered | −2 |
+| It withdrew the trial | nothing; that ending was its doing |
+
+**Standing never touches EXP, levels, or stats.** That separation is the whole
+reason favor is allowed to be harsh: the worst a constellation can do is lose
+interest in you. Only a side quest you *accepted* and then abandoned costs
+anything, and that is the broadcast's penalty, not the constellation's
+opinion.
+
+What standing does change is what you hear and what you are sent. A voice has
+a line per outcome and can have a different one per band, so a constellation
+does not greet a champion the way it greets a stranger, and a trial can carry
+a `min_standing` reserving it for players who have earned its attention.
+
+Standing and friendship are separate on purpose: favor is what a constellation
+*thinks* of you, friendship is whether it *speaks* to you at all. You can be
+its champion and still walk away; you can be slighted and still be a friend.
+
+```
+The Constellation of the Fallen Star: You do not know me yet. Get up anyway.
+The Constellation of the Fallen Star: Then do it.
+One hundred, in one day: 100/100
+The Constellation of the Fallen Star: That is what standing up looks like. (+200 EXP)
+```
+
+The System log carries the voice; the title, rank, EXP and favor movement ride
+on the event `payload`, so the feed reads as somebody talking while a client
+still has structured data to render a card from.
+
+### Writing more of it
+
+Everything a player reads that is not built from their own data lives in
+`app/content/`, as data rather than as strings in the services. A rewrite
+shows up as a diff of what a constellation *says*, not of how the app works,
+and re-running `scripts/seed_pantheon.py` updates the rows in place — matched
+on `code`, so every player's history with that constellation survives the
+edit.
+
+Lines resolve most specific first: the trial's own line for your standing,
+then its default, then the constellation's, then the plain System register. A
+half-written voice degrades to "Side quest complete." rather than to silence,
+so nothing has to be written before it is worth writing.
+
+This is English-only for now. Nothing is interpolated — a line is a finished
+sentence, and every number a client might want is on the payload — so adding
+another language later means another catalog beside this one, not an audit of
+every string in the codebase.
 
 ## Endpoints
 
@@ -251,6 +415,14 @@ fell short fail and pay their penalty.
 | `POST`  | `/side-quests/{id}/decline` | Pass on it |
 | `POST`  | `/side-quests/{id}/progress` | Log progress |
 | `POST`  | `/side-quests/{id}/complete` | Clear it outright |
+
+### Constellations
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| `GET`    | `/constellations` | The pantheon, each with your standing and friendship |
+| `GET`    | `/constellations/{code}` | One of them |
+| `POST`   | `/constellations/{code}/friendship` | Ask to be befriended |
+| `DELETE` | `/constellations/{code}/friendship` | End a friendship |
 
 ### System
 | Method | Path | Purpose |
@@ -400,7 +572,8 @@ app/
   security.py          # Argon2 hashing, JWT encode/decode
   deps.py              # settings / db / current-player dependencies
   errors.py            # AppError hierarchy + JSON error envelope
-  models/              # User, Player, Quest, QuestInstance, Quote, SideQuest, Penalty, SystemEvent
+  content/             # written content: the pantheon, its trials, its auditions
+  models/              # User, Player, Quest, Quote, SideQuest, Constellation, Penalty, SystemEvent
   schemas/             # Pydantic request/response models
   services/
     leveling.py        # pure EXP math — no ORM, no clock
@@ -409,19 +582,25 @@ app/
     progression.py     # awarding EXP, level-ups, penalties, stat spending
     quests.py          # quest lifecycle
     side_quests.py     # the opt-in, broadcasting, and answering side quests
+    story.py           # pure story rules — standing bands, favor, which line
+    constellations.py  # the pantheon in the database, and its regard
+    friendship.py      # asking to be befriended; the arbiter that decides
+    broadcasting.py    # picking written trials off the catalog and scheduling them
     daily.py           # the rollover
     clock.py           # timezone-aware date handling
     status.py          # building the status window
-  routers/             # health, auth, players, quests, quotes, side-quests, system
+  routers/             # health, auth, players, quests, quotes, side-quests, constellations, system
 alembic/               # migrations
-scripts/               # cron entrypoints: daily_reset, broadcast_side_quests
+scripts/               # entrypoints: daily_reset, seed_pantheon,
+                       #   schedule_side_quest, broadcast_side_quests
 tests/
 ```
 
-`services/leveling.py` and `services/scheduling.py` are deliberately pure — no
-database, no clock, no settings object — which is what makes the EXP curve and
-the schedule rules cheap to test exhaustively and safe to retune. The same
-holds for `pick_for_day` in `services/quotes.py`.
+`services/leveling.py`, `services/scheduling.py` and `services/story.py` are
+deliberately pure — no database, no clock, no settings object — which is what
+makes the EXP curve, the schedule rules and the favor curve cheap to test
+exhaustively and safe to retune. The same holds for `pick_for_day` in
+`services/quotes.py`.
 
 ## Errors
 
@@ -451,6 +630,8 @@ Settings load from environment variables prefixed `APP_`, or from `.env`.
 | `APP_EXP_CURVE_EXPONENT` | `1.5` | How steeply the curve climbs |
 | `APP_STAT_POINTS_PER_LEVEL` | `3` | Points granted per level |
 | `APP_PENALTY_EXP_MULTIPLIER` | `1.0` | Multiple of quest reward lost on failure |
+| `APP_FRIENDSHIP_ACCEPT_RATE` | `0.30` | Share of requests a constellation agrees to hear |
+| `APP_FRIENDSHIP_RETRY_DAYS` | `7` | Wait before asking the same one again |
 
 ### Before deploying
 
@@ -494,6 +675,19 @@ migrations always target the same database the app uses.
   quote changes, which is what a WidgetKit timeline wants for its next reload.
   An empty collection returns `quote: null` rather than a 404, so render a
   prompt to write one instead of an error state.
+- `GET /constellations` backs a "who is watching" screen: the whole pantheon
+  with your standing in each, and a safe read — looking at a constellation you
+  have never heard from does not start a history with it. Each carries a
+  `friendship` block with `may_ask`, `blocked_by` and `retry_after`, so a
+  button can be disabled with the right label instead of the client
+  discovering the answer by asking.
+- A refusal is a `201` with `status: "refused"`, not an error. The `422` is
+  for asking when you may not — already friends, a trial still open, or still
+  inside the wait.
+- Side quest events carry the voice in `message` and everything structured in
+  `payload` (`title`, `constellation`, `standing`, `favor_delta`,
+  `standing_changed`), so a popup can show the line and the numbers without
+  parsing prose.
 - `GET /side-quests/preferences` backs the opt-in screen. It reports
   `offers_per_week` against `offers_this_week`, so you can show what the
   chosen frequency actually means rather than just the word.
@@ -513,9 +707,16 @@ On the quote side: pinning a specific line to a specific day, tagging quotes so
 a mood or a training block draws from its own pool, and a starter set to write
 against instead of a blank collection.
 
-On the side quest side, the data structure is in place but the story is not:
-who the heralds are, what they say, and where the broadcasts come from. There
-is no authoring API yet either — broadcasts are written through
-`services/side_quests.create_side_quest` and sent by the cron script. Quiet
-hours, per-player deadlines, and a shared record of who cleared a broadcast
-are all further out.
+On the side quest side: there is no authoring API — trials are written into
+`app/content/broadcasts.py` and scheduled by script, which is fine while the
+author and the operator are the same person. Standing gates what you are sent
+and changes what you hear, but nothing else yet; a constellation could
+plausibly offer better terms to a champion. Multi-part arcs, quiet hours,
+per-player deadlines, and a shared record of who else cleared a broadcast are
+all further out. So is a second language, which the content layout is shaped
+for but nothing implements.
+
+On friendship: the arbiter rolls dice. Replacing it with one that reads the
+request is the next obvious move, and everything it would need is already
+stored. A constellation might also plausibly *offer* friendship to someone it
+has watched clearing another's trials, rather than only ever being asked.

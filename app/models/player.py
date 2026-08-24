@@ -10,6 +10,7 @@ from app.db import Base
 from app.models.enums import StatName
 
 if TYPE_CHECKING:
+    from app.models.constellation import ConstellationFavor, FriendshipRequest
     from app.models.event import SystemEvent
     from app.models.quest import Penalty, Quest
     from app.models.quote import Quote
@@ -51,6 +52,12 @@ class Player(Base):
         back_populates="player", cascade="all, delete-orphan"
     )
     quotes: Mapped[list["Quote"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    constellation_favor: Mapped[list["ConstellationFavor"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
+    )
+    friendship_requests: Mapped[list["FriendshipRequest"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"
     )
     side_quest_offers: Mapped[list["SideQuestOffer"]] = relationship(

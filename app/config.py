@@ -44,6 +44,14 @@ class Settings(BaseSettings):
     stat_points_per_level: int = 3
     penalty_exp_multiplier: float = 1.0
 
+    # How often a constellation agrees to hear a request to befriend it, and
+    # how long you wait before asking again after it says no. Settings rather
+    # than literals because this is the number most likely to want tuning once
+    # real players meet it — and because a future arbiter that actually reads
+    # the request will want the chance one to stay switchable.
+    friendship_accept_rate: float = 0.30
+    friendship_retry_days: int = 7
+
     @model_validator(mode="after")
     def _check_jwt_secret(self) -> "Settings":
         """Refuse to start production with a weak or default signing key."""

@@ -9,6 +9,12 @@ the broadcast carried a penalty to begin with.
 
 Every timestamp here is UTC. A broadcast is a single moment shared by every
 player, which is why side quests do not use the player-local dates quests do.
+
+Who issues a broadcast, what it says, and what it makes of the player's answer
+are the story layer: `content/` holds the writing, `services/story.py` the
+pure rules, and `services/constellations.py` the regard each constellation
+keeps. This module calls into them at each ending; it does not write any of
+the player-facing prose itself.
 """
 
 from dataclasses import dataclass, field
@@ -22,6 +28,7 @@ from app.errors import NotFoundError, ValidationError
 from app.models import (
     DIFFICULTY_EXP,
     SIDE_QUEST_OFFERS_PER_WEEK,
+    Constellation,
     EventType,
     Player,
     QuestDifficulty,
@@ -31,9 +38,10 @@ from app.models import (
     SideQuestOfferStatus,
     SideQuestPreference,
     SideQuestStatus,
+    Standing,
     StatName,
 )
-from app.services import clock
+from app.services import clock, constellations, friendship, story
 from app.services.progression import apply_exp_penalty, award_exp, log_event
 
 # The trailing window a frequency cap is measured over.
@@ -139,12 +147,18 @@ def offers_in_window(
 
     Counts offers made, not offers accepted: declining a side quest still uses
     up a slot, because the interruption is what the player agreed to ration.
+
+    Trials of admission are left out for that same reason — the player asked
+    for that one, so it is not an interruption and must not eat their week.
     """
     since = now - timedelta(days=days)
     return db.scalar(
-        select(func.count(SideQuestOffer.id)).where(
+        select(func.count(SideQuestOffer.id))
+        .join(SideQuest, SideQuest.id == SideQuestOffer.side_quest_id)
+        .where(
             SideQuestOffer.player_id == player.id,
             SideQuestOffer.offered_at > since,
+            SideQuest.is_challenge.is_(False),
         )
     ) or 0
 
@@ -165,6 +179,12 @@ def skip_reason(
     if not preference.is_opted_in:
         return "opted_out"
 
+    # A constellation issues to its friends and to nobody else. The way in is
+    # its trial of admission, which is handed over directly and never passes
+    # through here.
+    if not friendship.is_friend(db, player, side_quest.constellation):
+        return "not_a_friend"
+
     if (
         preference.max_difficulty is not None
         and side_quest.difficulty.rank > preference.max_difficulty.rank
@@ -173,6 +193,11 @@ def skip_reason(
 
     if not side_quest.covers_level(player.level):
         return "outside_level_range"
+
+    if side_quest.min_standing is not None:
+        standing = constellations.standing_of(db, player, side_quest.constellation)
+        if not story.meets_standing(standing, side_quest.min_standing):
+            return "standing_too_low"
 
     already = db.scalar(
         select(SideQuestOffer.id).where(
@@ -204,7 +229,9 @@ def create_side_quest(
     *,
     title: str,
     description: str | None = None,
-    herald: str | None = None,
+    constellation: Constellation | None = None,
+    catalog_code: str | None = None,
+    lines: dict | None = None,
     difficulty: QuestDifficulty = QuestDifficulty.E,
     target_count: int = 1,
     unit: str | None = None,
@@ -216,6 +243,8 @@ def create_side_quest(
     expires_at: datetime | None = None,
     min_level: int = 1,
     max_level: int | None = None,
+    min_standing: Standing | None = None,
+    is_challenge: bool = False,
     draft: bool = False,
     now: datetime | None = None,
 ) -> SideQuest:
@@ -224,6 +253,11 @@ def create_side_quest(
     Queued rather than sent, so authoring and announcing stay separate steps.
     `draft=True` parks it further back still: a draft is never picked up by
     `dispatch_due`, which is what lets the story layer write ahead.
+
+    `is_challenge=True` marks a trial of admission — addressed to the one
+    player who asked for it. It is created already BROADCAST, because there is
+    nobody else to send it to, and every path that reaches all players skips
+    it.
     """
     now = now or clock.utcnow()
     title = title.strip()
@@ -254,7 +288,9 @@ def create_side_quest(
     side_quest = SideQuest(
         title=title,
         description=description,
-        herald=(herald or "").strip() or None,
+        constellation_id=constellation.id if constellation else None,
+        catalog_code=catalog_code,
+        lines=lines or {},
         difficulty=difficulty,
         target_count=target_count,
         unit=unit,
@@ -262,11 +298,19 @@ def create_side_quest(
         stat_reward=stat_reward,
         stat_reward_amount=stat_reward_amount,
         penalty_exp=penalty_exp,
-        status=SideQuestStatus.DRAFT if draft else SideQuestStatus.SCHEDULED,
+        status=(
+            SideQuestStatus.DRAFT
+            if draft
+            else SideQuestStatus.BROADCAST
+            if is_challenge
+            else SideQuestStatus.SCHEDULED
+        ),
         broadcast_at=broadcast_at,
         expires_at=expires_at,
         min_level=min_level,
         max_level=max_level,
+        min_standing=min_standing,
+        is_challenge=is_challenge,
     )
     db.add(side_quest)
     db.flush()
@@ -302,6 +346,11 @@ def broadcast(
     """
     now = now or clock.utcnow()
 
+    if side_quest.is_challenge:
+        raise ValidationError(
+            "This is a trial of admission, set for one player; "
+            "it cannot be broadcast."
+        )
     if side_quest.status is SideQuestStatus.CANCELLED:
         raise ValidationError("This side quest was cancelled; it cannot be broadcast.")
     if side_quest.status is SideQuestStatus.CLOSED:
@@ -341,6 +390,7 @@ def dispatch_due(db: Session, *, now: datetime | None = None) -> list[BroadcastR
         .where(
             SideQuest.status == SideQuestStatus.SCHEDULED,
             SideQuest.broadcast_at <= now,
+            SideQuest.is_challenge.is_(False),
         )
         .order_by(SideQuest.broadcast_at, SideQuest.id)
     ).all()
@@ -373,6 +423,8 @@ def catch_up(
         .where(
             SideQuest.status == SideQuestStatus.BROADCAST,
             (SideQuest.expires_at.is_(None)) | (SideQuest.expires_at > now),
+            # Someone else's trial of admission is not an open broadcast.
+            SideQuest.is_challenge.is_(False),
         )
         .order_by(SideQuest.broadcast_at, SideQuest.id)
     ).all()
@@ -418,15 +470,19 @@ def make_offer(
     db.add(offer)
     db.flush()
 
+    constellations.record_offer(db, player, side_quest.constellation, now=now)
+    message, told = _narrate(db, player, side_quest, story.OFFER, seed=offer.id)
+
     log_event(
         db,
         player,
         EventType.SIDE_QUEST_OFFERED,
-        _announcement(side_quest),
+        message,
         {
             "side_quest_id": side_quest.id,
             "offer_id": offer.id,
-            "herald": side_quest.herald,
+            **told,
+            "announcement": side_quest.description,
             "difficulty": side_quest.difficulty.value,
             "exp_reward": side_quest.exp_reward,
             "penalty_exp": side_quest.penalty_exp,
@@ -439,15 +495,58 @@ def make_offer(
     return offer
 
 
-def _announcement(side_quest: SideQuest) -> str:
-    """The line the notification feed shows. Placeholder until the story lands."""
-    if side_quest.herald:
-        return f"{side_quest.herald} offers a side quest: {side_quest.title}"
-    return f"A side quest has been broadcast: {side_quest.title}"
+def _narrate(
+    db: Session,
+    player: Player,
+    side_quest: SideQuest,
+    kind: str,
+    *,
+    seed: int,
+    standing: Standing | None = None,
+) -> tuple[str, dict]:
+    """The line to log, plus the story fields every side quest event carries.
+
+    The message is what the constellation says; the title, the rank and the
+    numbers ride on the payload. That split is deliberate — the feed reads as
+    a voice rather than a receipt, and a client can still render a card from
+    the structured half without parsing prose.
+    """
+    constellation = side_quest.constellation
+    if standing is None:
+        standing = constellations.standing_of(db, player, constellation)
+
+    line = constellations.line_for(
+        side_quest, constellation, kind, standing, seed=seed
+    )
+    name = constellation.name if constellation else None
+    message = f"{name}: {line}" if name and line else (line or side_quest.title)
+
+    return message, {
+        "title": side_quest.title,
+        "line": line,
+        "constellation": constellation.code if constellation else None,
+        "constellation_name": name,
+        "standing": standing.value,
+    }
+
+
+def _favor_payload(change) -> dict:
+    """How a constellation's regard moved, for the client to render."""
+    if change is None:
+        return {}
+    return {
+        "favor": change.after,
+        "favor_delta": change.delta,
+        "standing_changed": change.band_changed,
+    }
 
 
 def cancel_side_quest(
-    db: Session, side_quest: SideQuest, *, now: datetime | None = None
+    db: Session,
+    side_quest: SideQuest,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
 ) -> int:
     """Call a broadcast off, voiding every offer still live.
 
@@ -469,6 +568,7 @@ def cancel_side_quest(
         offer.status = SideQuestOfferStatus.WITHDRAWN
         player = db.get(Player, offer.player_id)
         if player is not None:
+            friendship.settle_challenge(db, player, offer, settings, now=now)
             log_event(
                 db,
                 player,
@@ -541,20 +641,32 @@ def accept_offer(
     offer.responded_at = now
 
     side_quest = db.get(SideQuest, offer.side_quest_id)
+    message, told = _narrate(db, player, side_quest, story.ACCEPT, seed=offer.id)
+
     log_event(
         db,
         player,
         EventType.SIDE_QUEST_ACCEPTED,
-        f"Side quest accepted: {side_quest.title}" if side_quest else "Side quest accepted.",
-        {"side_quest_id": offer.side_quest_id, "offer_id": offer.id},
+        message,
+        {"side_quest_id": offer.side_quest_id, "offer_id": offer.id, **told},
     )
     return offer
 
 
 def decline_offer(
-    db: Session, player: Player, offer: SideQuestOffer, *, now: datetime | None = None
+    db: Session,
+    player: Player,
+    offer: SideQuestOffer,
+    settings: Settings,
+    *,
+    now: datetime | None = None,
 ) -> SideQuestOffer:
-    """Pass on a side quest. Costs nothing, now or later."""
+    """Pass on a side quest. Costs nothing, now or later.
+
+    Declining a trial of admission is allowed too — it withdraws the request
+    and starts the wait, the same as failing it. Changing your mind about
+    asking is a thing people do.
+    """
     now = now or clock.utcnow()
 
     if offer.status is not SideQuestOfferStatus.OFFERED:
@@ -566,13 +678,37 @@ def decline_offer(
     offer.responded_at = now
 
     side_quest = db.get(SideQuest, offer.side_quest_id)
+    change = constellations.record_outcome(
+        db,
+        player,
+        side_quest.constellation if side_quest else None,
+        SideQuestOfferStatus.DECLINED,
+        side_quest.difficulty if side_quest else QuestDifficulty.E,
+        now=now,
+    )
+    message, told = _narrate(
+        db,
+        player,
+        side_quest,
+        story.DECLINE,
+        seed=offer.id,
+        standing=change.standing_after if change else None,
+    )
+
     log_event(
         db,
         player,
         EventType.SIDE_QUEST_DECLINED,
-        f"Side quest declined: {side_quest.title}" if side_quest else "Side quest declined.",
-        {"side_quest_id": offer.side_quest_id, "offer_id": offer.id},
+        message,
+        {
+            "side_quest_id": offer.side_quest_id,
+            "offer_id": offer.id,
+            **told,
+            **_favor_payload(change),
+        },
     )
+
+    friendship.settle_challenge(db, player, offer, settings, now=now)
     return offer
 
 
@@ -605,6 +741,8 @@ def add_progress(
     offer.progress = max(0, offer.progress + amount)
 
     side_quest = db.get(SideQuest, offer.side_quest_id)
+    # Progress is the one side quest event with no voice behind it: nobody
+    # comments on your ninth rep, and a client renders this as a counter.
     log_event(
         db,
         player,
@@ -663,14 +801,33 @@ def complete_offer(
         source=f"side_quest:{side_quest.id}",
     )
 
+    change = constellations.record_outcome(
+        db,
+        player,
+        side_quest.constellation,
+        SideQuestOfferStatus.COMPLETED,
+        side_quest.difficulty,
+        now=now,
+    )
+    message, told = _narrate(
+        db,
+        player,
+        side_quest,
+        story.COMPLETE,
+        seed=offer.id,
+        standing=change.standing_after if change else None,
+    )
+
     log_event(
         db,
         player,
         EventType.SIDE_QUEST_COMPLETED,
-        f"Side quest complete: {side_quest.title} (+{side_quest.exp_reward} EXP)",
+        f"{message} (+{side_quest.exp_reward} EXP)",
         {
             "side_quest_id": side_quest.id,
             "offer_id": offer.id,
+            **told,
+            **_favor_payload(change),
             "exp_gained": side_quest.exp_reward,
             "stat_reward": (
                 side_quest.stat_reward.value if side_quest.stat_reward else None
@@ -679,6 +836,8 @@ def complete_offer(
             "leveled_up": result.leveled_up,
         },
     )
+
+    friendship.settle_challenge(db, player, offer, settings, now=now)
     return offer
 
 
@@ -744,33 +903,63 @@ def sweep_offers(
     for offer in lapsed:
         side_quest = db.get(SideQuest, offer.side_quest_id)
         title = side_quest.title if side_quest else "a side quest"
+        constellation = side_quest.constellation if side_quest else None
+        difficulty = side_quest.difficulty if side_quest else QuestDifficulty.E
 
         if offer.status is SideQuestOfferStatus.OFFERED:
             offer.status = SideQuestOfferStatus.EXPIRED
             result.expired_offer_ids.append(offer.id)
+
+            change = constellations.record_outcome(
+                db, player, constellation, SideQuestOfferStatus.EXPIRED, difficulty,
+                now=now,
+            )
+            message, told = _narrate(
+                db, player, side_quest, story.EXPIRE, seed=offer.id,
+                standing=change.standing_after if change else None,
+            ) if side_quest else (f"Side quest passed you by: {title}", {})
+
             log_event(
                 db,
                 player,
                 EventType.SIDE_QUEST_EXPIRED,
-                f"Side quest passed you by: {title}",
-                {"side_quest_id": offer.side_quest_id, "offer_id": offer.id},
+                message,
+                {
+                    "side_quest_id": offer.side_quest_id,
+                    "offer_id": offer.id,
+                    **told,
+                    **_favor_payload(change),
+                },
             )
+            friendship.settle_challenge(db, player, offer, settings, now=now)
             continue
 
         offer.status = SideQuestOfferStatus.FAILED
         result.failed_offer_ids.append(offer.id)
+
+        change = constellations.record_outcome(
+            db, player, constellation, SideQuestOfferStatus.FAILED, difficulty, now=now
+        )
+        message, told = _narrate(
+            db, player, side_quest, story.FAIL, seed=offer.id,
+            standing=change.standing_after if change else None,
+        ) if side_quest else (f"Side quest failed: {title}", {})
+
         log_event(
             db,
             player,
             EventType.SIDE_QUEST_FAILED,
-            f"Side quest failed: {title} ({offer.progress}/{offer.target_count})",
+            message,
             {
                 "side_quest_id": offer.side_quest_id,
                 "offer_id": offer.id,
+                **told,
+                **_favor_payload(change),
                 "progress": offer.progress,
                 "target_count": offer.target_count,
             },
         )
+        friendship.settle_challenge(db, player, offer, settings, now=now)
 
         penalty_exp = side_quest.penalty_exp if side_quest else 0
         amount = round(penalty_exp * settings.penalty_exp_multiplier)

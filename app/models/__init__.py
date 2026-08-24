@@ -1,15 +1,25 @@
 """ORM models. Importing this package registers every table on Base.metadata."""
 
+from app.models.constellation import (
+    Constellation,
+    ConstellationFavor,
+    FriendshipRequest,
+)
 from app.models.enums import (
     DIFFICULTY_EXP,
+    MAX_FAVOR,
+    MIN_FAVOR,
     SIDE_QUEST_OFFERS_PER_WEEK,
+    STANDING_THRESHOLDS,
     EventType,
+    FriendshipStatus,
     QuestDifficulty,
     QuestStatus,
     ScheduleKind,
     SideQuestFrequency,
     SideQuestOfferStatus,
     SideQuestStatus,
+    Standing,
     StatName,
 )
 from app.models.event import SystemEvent
@@ -21,8 +31,15 @@ from app.models.user import User
 
 __all__ = [
     "DIFFICULTY_EXP",
+    "MAX_FAVOR",
+    "MIN_FAVOR",
     "SIDE_QUEST_OFFERS_PER_WEEK",
+    "STANDING_THRESHOLDS",
+    "Constellation",
+    "ConstellationFavor",
     "EventType",
+    "FriendshipRequest",
+    "FriendshipStatus",
     "Penalty",
     "Player",
     "Quest",
@@ -37,6 +54,7 @@ __all__ = [
     "SideQuestOfferStatus",
     "SideQuestPreference",
     "SideQuestStatus",
+    "Standing",
     "StatName",
     "SystemEvent",
     "User",

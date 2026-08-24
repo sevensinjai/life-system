@@ -1,24 +1,17 @@
 """Request and response models for side quests and the opt-in that gates them."""
 
-from datetime import datetime
-from typing import Annotated
-
-from pydantic import AfterValidator, BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import (
     QuestDifficulty,
     SideQuestFrequency,
     SideQuestOfferStatus,
     SideQuestStatus,
+    Standing,
     StatName,
 )
-from app.services.clock import as_utc
-
-# Side quest windows are absolute instants, and a client that reads a deadline
-# as local time is wrong by hours. SQLite hands stored timestamps back without
-# a timezone, so every datetime leaving this module is stamped UTC on the way
-# out rather than trusting whatever the backend returned.
-UtcMoment = Annotated[datetime, AfterValidator(as_utc)]
+from app.schemas.common import UtcMoment
+from app.schemas.constellation import ConstellationBrief
 
 
 class SideQuestPreferenceUpdate(BaseModel):
@@ -81,9 +74,11 @@ class SideQuestResponse(BaseModel):
 
     id: int
     title: str
-    description: str | None
-    herald: str | None = Field(
-        description="Who issued it, if the System named itself."
+    description: str | None = Field(
+        description="The announcement: what the constellation said when it went out."
+    )
+    constellation: ConstellationBrief | None = Field(
+        default=None, description="Who issued it. Null for the System itself."
     )
     difficulty: QuestDifficulty
     target_count: int
@@ -97,6 +92,10 @@ class SideQuestResponse(BaseModel):
     status: SideQuestStatus
     broadcast_at: UtcMoment
     expires_at: UtcMoment | None
+    min_standing: Standing | None = Field(
+        default=None,
+        description="The standing this trial was reserved for, if it was reserved.",
+    )
 
 
 class SideQuestOfferResponse(BaseModel):

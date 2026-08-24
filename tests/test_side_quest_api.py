@@ -5,22 +5,26 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from app.models import QuestDifficulty
-from app.services import side_quests
+from app.services import constellations, side_quests
+from tests.conftest import befriend
 
 NOW = datetime(2026, 8, 24, 12, tzinfo=UTC)
 
 
 @pytest.fixture
-def broadcast(db, auth_client):
+def broadcast(db, auth_client, player):
     """A side quest already out in the world, waiting for opted-in players.
 
     Broadcast before anyone opts in, so the catch-up path is what delivers it —
     which is the path a real late opt-in takes.
     """
+    constellations.seed_pantheon(db)
+    star = constellations.get_by_code(db, "fallen_star")
+    befriend(db, player, star, when=NOW)
     side_quest = side_quests.create_side_quest(
         db,
         title="Slay ten shadows",
-        herald="The Constellation of the Fallen Star",
+        constellation=star,
         difficulty=QuestDifficulty.C,
         target_count=10,
         unit="shadows",
@@ -211,3 +215,113 @@ def test_deadlines_come_back_with_a_timezone(auth_client, broadcast) -> None:
 
     expires_at = auth_client.get("/side-quests").json()[0]["expires_at"]
     assert expires_at.endswith("Z") or "+00:00" in expires_at
+
+
+# --------------------------------------------------------------------------
+# Befriending a constellation, over HTTP
+# --------------------------------------------------------------------------
+
+
+def test_the_pantheon_screen_says_whether_you_may_ask(auth_client, db) -> None:
+    constellations.seed_pantheon(db)
+    db.commit()
+
+    entry = auth_client.get("/constellations/fallen_star").json()
+
+    assert entry["friendship"]["is_friend"] is False
+    assert entry["friendship"]["may_ask"] is True
+    assert entry["friendship"]["blocked_by"] is None
+
+
+def test_asking_returns_the_answer_at_once(auth_client, db, monkeypatch) -> None:
+    """A refusal is a 201 with a verdict, not an error."""
+    from app.services import friendship
+
+    constellations.seed_pantheon(db)
+    db.commit()
+    monkeypatch.setattr(
+        friendship, "default_arbiter", lambda settings: lambda petition:
+        friendship.Verdict(heard=False, reason="Not today.")
+    )
+
+    response = auth_client.post(
+        "/constellations/fallen_star/friendship", json={"message": "I fell too."}
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["status"] == "refused"
+    assert body["retry_after"] is not None
+    assert body["challenge_offer_id"] is None
+    assert body["line"]
+
+
+def test_a_granted_request_hands_over_a_trial(auth_client, db, monkeypatch) -> None:
+    from app.services import friendship
+
+    constellations.seed_pantheon(db)
+    db.commit()
+    monkeypatch.setattr(
+        friendship, "default_arbiter", lambda settings: lambda petition:
+        friendship.Verdict(heard=True, reason="Heard.")
+    )
+
+    body = auth_client.post(
+        "/constellations/fallen_star/friendship", json={}
+    ).json()
+
+    assert body["status"] == "challenged"
+    offer = auth_client.get(f"/side-quests/{body['challenge_offer_id']}").json()
+    assert offer["side_quest"]["constellation"]["code"] == "fallen_star"
+
+    # And clearing it through the ordinary endpoints makes the friendship.
+    auth_client.post(f"/side-quests/{offer['id']}/accept")
+    auth_client.post(
+        f"/side-quests/{offer['id']}/progress",
+        json={"amount": offer["target_count"]},
+    )
+
+    entry = auth_client.get("/constellations/fallen_star").json()
+    assert entry["friendship"]["is_friend"] is True
+
+
+def test_asking_inside_the_wait_is_a_422(auth_client, db, monkeypatch) -> None:
+    from app.services import friendship
+
+    constellations.seed_pantheon(db)
+    db.commit()
+    monkeypatch.setattr(
+        friendship, "default_arbiter", lambda settings: lambda petition:
+        friendship.Verdict(heard=False, reason="Not today.")
+    )
+    auth_client.post("/constellations/fallen_star/friendship", json={})
+
+    response = auth_client.post("/constellations/fallen_star/friendship", json={})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+
+    entry = auth_client.get("/constellations/fallen_star").json()
+    assert entry["friendship"]["blocked_by"] == "too_soon"
+    assert entry["friendship"]["retry_after"] is not None
+
+
+def test_ending_a_friendship_over_http(auth_client, db, player) -> None:
+    constellations.seed_pantheon(db)
+    star = constellations.get_by_code(db, "fallen_star")
+    befriend(db, player, star, when=NOW)
+    db.commit()
+
+    body = auth_client.delete("/constellations/fallen_star/friendship").json()
+
+    assert body["friendship"]["is_friend"] is False
+    assert body["friendship"]["blocked_by"] == "too_soon"
+
+
+def test_an_unknown_constellation_cannot_be_asked(auth_client, db) -> None:
+    constellations.seed_pantheon(db)
+    db.commit()
+
+    response = auth_client.post("/constellations/the_absent_one/friendship", json={})
+
+    assert response.status_code == 404

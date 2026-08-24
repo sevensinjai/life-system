@@ -2,7 +2,9 @@
 """Send every side quest whose broadcast time has arrived.
 
 Nothing else dispatches broadcasts — a scheduled side quest sits SCHEDULED
-until this runs, so put it on the same cron as the daily reset:
+until this runs. `scripts/schedule_side_quest.py` decides *what* goes out and
+when; this puts it in front of players once that moment arrives. Give it the
+same cron as the daily reset:
 
     */15 * * * * cd /srv/system && .venv/bin/python -m scripts.broadcast_side_quests
 

@@ -15,8 +15,9 @@ from app.models import (
     User,
 )
 from app.security import hash_password
-from app.services import side_quests
+from app.services import constellations, side_quests
 from app.services.daily import run_daily_reset
+from tests.conftest import befriend
 
 NOW = datetime(2026, 8, 24, 12, tzinfo=UTC)
 DEADLINE = NOW + timedelta(days=2)
@@ -36,12 +37,25 @@ def hunter(db) -> Player:
 
 
 @pytest.fixture
-def offer(db, hunter):
+def fallen_star(db, hunter):
+    """The pantheon, seeded, with the player already a friend of this one.
+
+    A constellation issues to its friends and nobody else, so a test about
+    what happens *after* a trial arrives has to start from friendship.
+    """
+    constellations.seed_pantheon(db)
+    star = constellations.get_by_code(db, "fallen_star")
+    befriend(db, hunter, star, when=NOW)
+    return star
+
+
+@pytest.fixture
+def offer(db, hunter, fallen_star):
     """One open offer, worth 200 EXP with a 100 EXP penalty for dropping it."""
     side_quest = side_quests.create_side_quest(
         db,
         title="Slay ten shadows",
-        herald="The Constellation of the Fallen Star",
+        constellation=fallen_star,
         target_count=10,
         unit="shadows",
         exp_reward=200,
@@ -70,9 +84,12 @@ def events_of(db, player, event_type) -> list[SystemEvent]:
 
 
 def test_a_broadcast_lands_in_the_system_log(db, hunter, offer) -> None:
+    """The feed carries the constellation's voice, with the facts alongside."""
     announcement = events_of(db, hunter, EventType.SIDE_QUEST_OFFERED)[0]
 
-    assert "The Constellation of the Fallen Star" in announcement.message
+    assert announcement.message.startswith("The Constellation of the Fallen Star: ")
+    assert announcement.payload["constellation"] == "fallen_star"
+    assert announcement.payload["title"] == "Slay ten shadows"
     assert announcement.payload["penalty_exp"] == 100
 
 
@@ -92,8 +109,10 @@ def test_progress_before_accepting_is_refused(db, hunter, offer, settings) -> No
         side_quests.add_progress(db, hunter, offer, 1, settings, now=NOW)
 
 
-def test_a_declined_side_quest_cannot_be_accepted_later(db, hunter, offer) -> None:
-    side_quests.decline_offer(db, hunter, offer, now=NOW)
+def test_a_declined_side_quest_cannot_be_accepted_later(
+    db, hunter, offer, settings
+) -> None:
+    side_quests.decline_offer(db, hunter, offer, settings, now=NOW)
 
     with pytest.raises(ValidationError, match="declined"):
         side_quests.accept_offer(db, hunter, offer, now=NOW)
