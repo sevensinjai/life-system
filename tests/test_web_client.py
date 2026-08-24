@@ -1,5 +1,6 @@
-"""The browser client mounted alongside the API."""
+"""The React client the API serves for hand-testing."""
 
+import json
 import re
 from pathlib import Path
 
@@ -9,17 +10,64 @@ from fastapi.testclient import TestClient
 from app.config import Settings
 from app.main import WEB_CLIENT_DIR, create_app
 
-STATIC = WEB_CLIENT_DIR / "static"
+WEB_SOURCE = Path(__file__).resolve().parents[1] / "web"
+BUILT = WEB_CLIENT_DIR.is_dir()
+needs_build = pytest.mark.skipif(
+    not BUILT, reason="run `npm install && npm run build` in web/ to test the built client"
+)
+
+# Paths the client itself owns, which the dev server must not forward.
+CLIENT_OWNED = {"/", "/web", "/docs", "/redoc", "/openapi.json"}
 
 
+def api_prefixes(app) -> set[str]:
+    """The top-level path segment of every API route, e.g. `/quests`."""
+    prefixes = set()
+    for route in app.routes:
+        path = getattr(route, "path", "")
+        if not path.startswith("/"):
+            continue
+        prefix = f"/{path.lstrip('/').split('/')[0]}"
+        if prefix not in CLIENT_OWNED:
+            prefixes.add(prefix)
+    return prefixes
+
+
+def test_client_source_is_present() -> None:
+    for relative in ("index.html", "package.json", "components.json", "src/lib/api.ts"):
+        assert (WEB_SOURCE / relative).is_file(), relative
+
+
+def test_build_script_exists() -> None:
+    package = json.loads((WEB_SOURCE / "package.json").read_text())
+    assert "build" in package["scripts"]
+
+
+def test_vite_builds_for_the_mount_path() -> None:
+    """A base other than /web/ would emit asset URLs the API does not serve."""
+    config = (WEB_SOURCE / "vite.config.ts").read_text()
+    assert 'base: "/web/"' in config
+
+
+def test_dev_server_proxies_every_api_prefix(client: TestClient) -> None:
+    """Otherwise a new router works in production and 404s under `npm run dev`."""
+    config = (WEB_SOURCE / "vite.config.ts").read_text()
+    proxied = set(re.findall(r'"(/[a-z.]+)"', config))
+
+    missing = api_prefixes(client.app) - proxied
+    assert not missing, f"vite.config.ts proxy is missing {sorted(missing)}"
+
+
+@needs_build
 def test_index_is_served(client: TestClient) -> None:
     response = client.get("/web/")
 
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert "SYSTEM" in response.text
+    assert '<div id="root">' in response.text
 
 
+@needs_build
 def test_root_redirects_to_the_client(client: TestClient) -> None:
     response = client.get("/", follow_redirects=False)
 
@@ -27,38 +75,31 @@ def test_root_redirects_to_the_client(client: TestClient) -> None:
     assert response.headers["location"] == "/web/"
 
 
-def test_client_assets_are_served(client: TestClient) -> None:
-    for path in ("/web/static/styles.css", "/web/static/app.js", "/web/static/api.js"):
-        assert client.get(path).status_code == 200, path
-
-
-@pytest.mark.parametrize(
-    "asset",
-    sorted(str(path.relative_to(WEB_CLIENT_DIR)) for path in STATIC.rglob("*.js")),
-)
-def test_every_module_import_resolves(asset: str) -> None:
-    """Imports are relative paths the browser fetches, so a typo is a 404."""
-    source = (WEB_CLIENT_DIR / asset).read_text()
-    for target in re.findall(r"""from ["'](\.[^"']+)["']""", source):
-        resolved = (WEB_CLIENT_DIR / asset).parent / target
-        assert resolved.is_file(), f"{asset} imports missing {target}"
-
-
-def test_index_references_existing_assets() -> None:
+@needs_build
+def test_built_assets_are_served(client: TestClient) -> None:
+    """The hashed bundles the built index.html asks for must resolve under /web."""
     index = (WEB_CLIENT_DIR / "index.html").read_text()
-    for reference in re.findall(r"""(?:href|src)=["']\./([^"']+)["']""", index):
-        assert (WEB_CLIENT_DIR / reference).is_file(), reference
+    references = re.findall(r'(?:src|href)="(/web/[^"]+)"', index)
+
+    assert references, "built index.html references no bundles"
+    for reference in references:
+        assert client.get(reference).status_code == 200, reference
+
+
+def test_missing_build_is_not_an_error(monkeypatch, session_factory) -> None:
+    """A source checkout with no `npm run build` still serves the API."""
+    monkeypatch.setattr("app.main.WEB_CLIENT_DIR", WEB_SOURCE / "does-not-exist")
+    app = create_app(_settings())
+
+    with TestClient(app, raise_server_exceptions=False) as unbuilt:
+        assert unbuilt.get("/web/").status_code == 404
+        assert unbuilt.get("/", follow_redirects=False).status_code == 404
+        assert unbuilt.get("/health").status_code == 200
 
 
 def test_client_can_be_disabled(session_factory) -> None:
     """An app-only deployment turns the whole thing off."""
-    settings = Settings(
-        environment="test",
-        jwt_secret="test-secret-that-is-long-enough-for-hs256",
-        database_url="sqlite://",
-        web_client=False,
-    )
-    app = create_app(settings)
+    app = create_app(_settings(web_client=False))
 
     with TestClient(app, raise_server_exceptions=False) as disabled:
         assert disabled.get("/web/").status_code == 404
@@ -66,7 +107,10 @@ def test_client_can_be_disabled(session_factory) -> None:
         assert disabled.get("/health").status_code == 200
 
 
-def test_client_lives_inside_the_package() -> None:
-    """It is packaged with the app, not a stray directory beside it."""
-    assert WEB_CLIENT_DIR == Path(__file__).resolve().parents[1] / "app" / "web"
-    assert (WEB_CLIENT_DIR / "index.html").is_file()
+def _settings(**overrides) -> Settings:
+    return Settings(
+        environment="test",
+        jwt_secret="test-secret-that-is-long-enough-for-hs256",
+        database_url="sqlite://",
+        **overrides,
+    )
