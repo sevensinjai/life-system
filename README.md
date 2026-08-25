@@ -9,6 +9,11 @@ quests open a period on whatever schedule you author, and a period that closes
 unfinished **fails and costs you EXP**. The penalty is what makes the loop mean
 something.
 
+Quests also train **skills**, which level on their own curve. You design the
+skill graph yourself — Singing holding Pitch accuracy holding Interval jumps —
+and practising a sub-skill rolls EXP up the branch, so the skill above levels
+off the work done inside it.
+
 You also keep a collection of **motivational quotes** you write yourself, and
 the System puts one of them on your lock screen each day.
 
@@ -395,6 +400,16 @@ every string in the codebase.
 | `POST`   | `/quests/{id}/progress` | Log progress |
 | `POST`   | `/quests/{id}/complete` | Clear it outright |
 
+### Skills
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| `POST`   | `/skills` | Add a skill, optionally under another |
+| `GET`    | `/skills` | Your graph, nested (`?include_archived=`) |
+| `GET`    | `/skills/{id}` | One skill, with its breadcrumb and children |
+| `PATCH`  | `/skills/{id}` | Rename, describe, move, archive or restore |
+| `DELETE` | `/skills/{id}` | Archive it and everything under it |
+| `POST`   | `/skills/{id}/practice` | Log practice no quest covers |
+
 ### Quotes
 | Method | Path | Purpose |
 | ------ | ---- | ------- |
@@ -511,6 +526,11 @@ applied.
 `stat_reward_amount` pay out on completion, on top of EXP — so push-ups can
 raise strength specifically.
 
+**Skills level separately.** A quest with a `skill_id` also trains that skill
+and everything above it in the graph; see [The skill graph](#the-skill-graph).
+Player EXP and skill EXP are tracked independently — clearing a quest can level
+you, the skill, both, or neither.
+
 ## Penalties
 
 When a period closes with its target unmet, the instance is marked **failed**
@@ -562,6 +582,92 @@ Each player stores an IANA timezone, and periods turn at *their* local
 midnight. For a player in `Asia/Seoul`, 20:00 UTC is already 05:00 the next
 day. Changing your timezone shifts future rollovers; it does not re-date
 periods that already exist.
+
+## The skill graph
+
+The player has a level. So does every skill, on its own curve, and you decide
+what the skills are.
+
+```bash
+# Design the graph
+curl -X POST localhost:8000/skills -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{ "name": "Singing" }'
+
+curl -X POST localhost:8000/skills -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{
+    "name": "Pitch accuracy", "parent_id": 1
+  }'
+
+# A quest that trains it
+curl -X POST localhost:8000/quests -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' -d '{
+    "title": "Sing scales for 20 min",
+    "schedule": { "kind": "daily" },
+    "difficulty": "C",
+    "skill_id": 2
+  }'
+```
+
+Clearing that quest pays the player 200 EXP **and** trains the branch:
+
+```
+Singing         Lv.1 (0/100)     ->  Lv.2 (100/280)
+  Pitch accuracy  Lv.1 (0/100)   ->  Lv.2 (100/280)
+```
+
+### Rolling up
+
+**Practising a sub-skill is practising its parent.** EXP awarded to a skill is
+credited to every skill above it, so Singing advances because Pitch accuracy
+did. The completion response carries one entry per skill credited — the skill
+trained first, then each step up — so a client can animate the whole branch
+without refetching.
+
+`APP_SKILL_EXP_ROLLUP` is the share that reaches each step up, compounding with
+distance. At the default `1.0` a branch is credited in full; at `0.5` a parent
+takes half and a grandparent a quarter; at `0.0` only the skill you trained
+advances. The chain stops as soon as a share rounds to zero.
+
+### Why a tree and not a general graph
+
+Every skill has one parent, so every skill has exactly one path to its root.
+That is what makes rolling EXP upward unambiguous — with two parents, a shared
+ancestor could be credited twice for the same practice, and "how good am I at
+Singing" would depend on which way you counted. The cost is that a sub-skill
+cannot sit under two parents; **Breath control** under both Singing and
+Swimming has to be two skills.
+
+### Shaping it
+
+Skills nest up to `APP_MAX_SKILL_DEPTH` levels (5 by default). Moving a skill
+takes its subtree along, and two moves are refused outright:
+
+- one that would make a skill its own ancestor, and
+- one that would push a branch past the depth limit — measured against the
+  *whole subtree*, so moving a three-level branch under a deep node is caught
+  even though the moved skill itself would fit.
+
+Siblings cannot share a name (case-insensitively); the same name under
+different parents is fine.
+
+### Earning skill EXP
+
+| Source | How |
+| ------ | --- |
+| A quest | Give the quest a `skill_id`. It pays `skill_exp_reward`, which defaults to the quest's own EXP reward |
+| Practice | `POST /skills/{id}/practice` with an `exp` amount, for work no quest covers |
+
+Skills level on the same curve shape as the player, tuned separately through
+`APP_SKILL_EXP_CURVE_BASE` and `APP_SKILL_EXP_CURVE_EXPONENT` — so skills can
+advance faster or slower than the player without touching code.
+
+### Archiving
+
+Archiving a skill archives everything under it, and restoring one restores its
+ancestors. Both directions hold the same invariant: **an active skill never
+hangs under an archived parent.** An archived skill takes no practice and
+receives no roll-up; a quest still pointing at one completes normally and
+simply trains nothing, rather than failing.
 
 ## Daily quotes
 
@@ -626,16 +732,17 @@ erroring. `PATCH is_active=true` puts it back.
 app/
   main.py              # create_app() factory + `app` ASGI entrypoint
   config.py            # Settings; progression tuning lives here
-  db.py                # engine, session factory, declarative Base
+  db.py                # engine, session factory, declarative Base, SQLite FK pragma
   security.py          # Argon2 hashing, JWT encode/decode
   deps.py              # settings / db / current-player dependencies
   errors.py            # AppError hierarchy + JSON error envelope
   content/             # written content: the pantheon, its trials, its auditions
-  models/              # User, Player, Quest, Quote, SideQuest, Constellation, Penalty, SystemEvent
+  models/              # User, Player, Quest, Skill, Quote, SideQuest, Constellation, Penalty, SystemEvent
   schemas/             # Pydantic request/response models
   services/
     leveling.py        # pure EXP math — no ORM, no clock
     scheduling.py      # pure period math — when a quest is due, how long you have
+    skills.py          # the skill graph; pure tree math, then EXP roll-up
     quotes.py          # the quote collection; pure rotation for the daily pick
     progression.py     # awarding EXP, level-ups, penalties, stat spending
     quests.py          # quest lifecycle
@@ -647,7 +754,7 @@ app/
     daily.py           # the rollover
     clock.py           # timezone-aware date handling
     status.py          # building the status window
-  routers/             # health, auth, players, quests, quotes, side-quests, constellations, system
+  routers/             # health, auth, players, quests, skills, quotes, side-quests, constellations, system
 alembic/               # migrations
 web/                   # the React client (see web/README.md)
 scripts/               # entrypoints: daily_reset, seed_pantheon,
@@ -659,7 +766,9 @@ tests/
 deliberately pure — no database, no clock, no settings object — which is what
 makes the EXP curve, the schedule rules and the favor curve cheap to test
 exhaustively and safe to retune. The same holds for `pick_for_day` in
-`services/quotes.py`.
+`services/quotes.py` and the tree arithmetic at the
+top of `services/skills.py` — cycles, depth and subtree height are the rules
+easiest to get wrong, so they are testable against plain dictionaries.
 
 ## Errors
 
@@ -692,6 +801,10 @@ Settings load from environment variables prefixed `APP_`, or from `.env`.
 | `APP_PENALTY_EXP_MULTIPLIER` | `1.0` | Multiple of quest reward lost on failure |
 | `APP_FRIENDSHIP_ACCEPT_RATE` | `0.30` | Share of requests a constellation agrees to hear |
 | `APP_FRIENDSHIP_RETRY_DAYS` | `7` | Wait before asking the same one again |
+| `APP_SKILL_EXP_CURVE_BASE` | `100` | EXP for a skill's level 1 → 2 |
+| `APP_SKILL_EXP_CURVE_EXPONENT` | `1.5` | How steeply the skill curve climbs |
+| `APP_SKILL_EXP_ROLLUP` | `1.0` | Share of skill EXP reaching each step up the branch |
+| `APP_MAX_SKILL_DEPTH` | `5` | How deep the skill graph may nest |
 
 ### Before deploying
 
@@ -730,6 +843,10 @@ migrations always target the same database the app uses.
 - Quest actions return the quest, its instance, `exp_gained`, and `leveled_up`
   in one response, so a completion needs no follow-up request to animate a
   level-up.
+- `GET /skills` returns the graph already nested, each node carrying `level`,
+  `exp_progress` and `depth` — enough to render an outline without a second
+  pass. Quest and practice responses both return `skill_awards`, ordered from
+  the skill trained outward, so a level-up animation can walk the branch.
 - `GET /quotes/today` backs the lock-screen widget. It is a pure read — no
   daily-reset call needed first — and `refresh_after` is the exact instant the
   quote changes, which is what a WidgetKit timeline wants for its next reload.
@@ -762,6 +879,10 @@ migrations always target the same database the app uses.
 Titles and achievements, rank (E–S) and job classes, multi-day dungeon
 challenges, quest chains, and reusable drafts or templates. The event log and
 quest model leave room for all of them.
+
+On the skill side: skill-gated quests, decay for skills left untrained, and
+sharing one sub-skill between two parents — which needs an answer to the
+double-crediting question before the graph can stop being a tree.
 
 On the quote side: pinning a specific line to a specific day, tagging quotes so
 a mood or a training block draws from its own pool, and a starter set to write

@@ -27,6 +27,7 @@ from app.models.player import Player
 from app.models.quest import Penalty, Quest, QuestInstance
 from app.models.quote import Quote
 from app.models.side_quest import SideQuest, SideQuestOffer, SideQuestPreference
+from app.models.skill import Skill
 from app.models.user import User
 
 __all__ = [
@@ -55,6 +56,7 @@ __all__ = [
     "SideQuestPreference",
     "SideQuestStatus",
     "Standing",
+    "Skill",
     "StatName",
     "SystemEvent",
     "User",

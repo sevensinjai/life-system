@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.quest import Penalty, Quest
     from app.models.quote import Quote
     from app.models.side_quest import SideQuestOffer, SideQuestPreference
+    from app.models.skill import Skill
     from app.models.user import User
 
 
@@ -67,6 +68,9 @@ class Player(Base):
     # "no preference" mean "not enrolled".
     side_quest_preference: Mapped["SideQuestPreference | None"] = relationship(
         back_populates="player", uselist=False, cascade="all, delete-orphan"
+    )
+    skills: Mapped[list["Skill"]] = relationship(
+        back_populates="player", cascade="all, delete-orphan"
     )
     penalties: Mapped[list["Penalty"]] = relationship(
         back_populates="player", cascade="all, delete-orphan"

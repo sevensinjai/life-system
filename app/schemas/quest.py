@@ -5,6 +5,7 @@ from datetime import date, datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.enums import QuestDifficulty, QuestStatus, ScheduleKind, StatName
+from app.schemas.skill import SkillAwardResponse
 from app.services.scheduling import MAX_INTERVAL_DAYS
 
 
@@ -66,6 +67,17 @@ class QuestCreate(BaseModel):
     )
     stat_reward: StatName | None = None
     stat_reward_amount: int = Field(default=0, ge=0)
+    skill_id: int | None = Field(
+        default=None, description="Clearing this quest trains this skill."
+    )
+    skill_exp_reward: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "EXP the linked skill earns. Defaults to the quest's own EXP "
+            "reward when a skill is named and no amount is given."
+        ),
+    )
 
 
 class QuestUpdate(BaseModel):
@@ -80,6 +92,8 @@ class QuestUpdate(BaseModel):
     exp_reward: int | None = Field(default=None, ge=0)
     stat_reward: StatName | None = None
     stat_reward_amount: int | None = Field(default=None, ge=0)
+    skill_id: int | None = None
+    skill_exp_reward: int | None = Field(default=None, ge=0)
     is_active: bool | None = None
 
 
@@ -122,6 +136,8 @@ class QuestResponse(BaseModel):
     exp_reward: int
     stat_reward: StatName | None
     stat_reward_amount: int
+    skill_id: int | None = None
+    skill_exp_reward: int = 0
     is_active: bool
     created_at: datetime
     current_instance: QuestInstanceResponse | None = Field(
@@ -153,3 +169,10 @@ class QuestActionResponse(BaseModel):
     completed: bool
     exp_gained: int = 0
     leveled_up: bool = False
+    skill_awards: list[SkillAwardResponse] = Field(
+        default_factory=list,
+        description=(
+            "Skills credited by this action: the one the quest names, then "
+            "each skill above it. Empty when the quest trains nothing."
+        ),
+    )

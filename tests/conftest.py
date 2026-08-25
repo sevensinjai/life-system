@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.config import Settings
-from app.db import Base, get_db
+from app.db import Base, enable_sqlite_foreign_keys, get_db
 from app.main import create_app
 
 # Importing the models package registers every table on Base.metadata.
@@ -41,6 +41,8 @@ def db_engine():
         poolclass=StaticPool,
         future=True,
     )
+    # Match the application engine, so ondelete rules behave the same in tests.
+    enable_sqlite_foreign_keys(engine)
     Base.metadata.create_all(engine)
     yield engine
     Base.metadata.drop_all(engine)

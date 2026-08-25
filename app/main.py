@@ -17,6 +17,7 @@ from app.routers import (
     quests,
     quotes,
     side_quests,
+    skills,
     system,
 )
 
@@ -63,6 +64,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(quotes.router)
     app.include_router(side_quests.router)
     app.include_router(constellations.router)
+    app.include_router(skills.router)
     app.include_router(system.router)
 
     if settings.web_client:

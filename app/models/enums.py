@@ -139,6 +139,8 @@ class EventType(StrEnum):
     QUEST_COMPLETED = "quest_completed"
     QUEST_FAILED = "quest_failed"
     LEVEL_UP = "level_up"
+    SKILL_CREATED = "skill_created"
+    SKILL_LEVEL_UP = "skill_level_up"
     STATS_ALLOCATED = "stats_allocated"
     PENALTY_APPLIED = "penalty_applied"
     DAILY_RESET = "daily_reset"
