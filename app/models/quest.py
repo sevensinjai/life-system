@@ -11,6 +11,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    Float,
     String,
     Text,
     UniqueConstraint,
@@ -62,8 +63,11 @@ class Quest(Base):
     # How many units clear the quest, e.g. 100 push-ups.
     target_count: Mapped[int] = mapped_column(Integer, default=1)
     unit: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    units_per_minute: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     exp_reward: Mapped[int] = mapped_column(Integer)
+    # Canonical completion reward: one point of EXP is one minute of practice.
+    practice_minutes: Mapped[int] = mapped_column(Integer, default=1)
     stat_reward: Mapped[StatName | None] = mapped_column(
         Enum(StatName, native_enum=False, length=16), nullable=True
     )
@@ -119,6 +123,9 @@ class QuestInstance(Base):
 
     progress: Mapped[int] = mapped_column(Integer, default=0)
     target_count: Mapped[int] = mapped_column(Integer, default=1)
+    # Snapshotted with the target so editing a quest cannot change the value
+    # of a period that is already open.
+    practice_minutes: Mapped[int] = mapped_column(Integer, default=1)
     status: Mapped[QuestStatus] = mapped_column(
         Enum(QuestStatus, native_enum=False, length=16), default=QuestStatus.ACTIVE
     )

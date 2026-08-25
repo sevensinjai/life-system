@@ -84,6 +84,9 @@ class SideQuestResponse(BaseModel):
     target_count: int
     unit: str | None
     exp_reward: int
+    practice_minutes: int = Field(
+        description="Estimated practice minutes awarded on completion; 1 minute is 1 EXP."
+    )
     stat_reward: StatName | None
     stat_reward_amount: int
     penalty_exp: int = Field(

@@ -22,7 +22,8 @@ export interface QuestFormState {
   difficulty: QuestDifficulty
   targetCount: string
   unit: string
-  expReward: string
+  unitsPerMinute: string
+  practiceMinutes: string
   statReward: StatName | typeof NO_STAT
   statRewardAmount: string
   kind: ScheduleKind
@@ -39,7 +40,8 @@ export function emptyQuestForm(): QuestFormState {
     difficulty: "E",
     targetCount: "1",
     unit: "",
-    expReward: "",
+    unitsPerMinute: "",
+    practiceMinutes: "10",
     statReward: NO_STAT,
     statRewardAmount: "0",
     kind: "once",
@@ -57,7 +59,8 @@ export function questToForm(quest: Quest): QuestFormState {
     difficulty: quest.difficulty,
     targetCount: String(quest.target_count),
     unit: quest.unit ?? "",
-    expReward: String(quest.exp_reward),
+    unitsPerMinute: quest.units_per_minute?.toString() ?? "",
+    practiceMinutes: String(quest.practice_minutes),
     statReward: quest.stat_reward ?? NO_STAT,
     statRewardAmount: String(quest.stat_reward_amount),
     kind: quest.schedule.kind,
@@ -82,13 +85,18 @@ export function formToPayload(form: QuestFormState): QuestPayload {
     difficulty: form.difficulty,
     target_count: Number(form.targetCount) || 1,
     unit: form.unit.trim() || null,
+    practice_minutes: Math.max(1, Number(form.practiceMinutes) || 1),
     stat_reward: form.statReward === NO_STAT ? null : form.statReward,
     stat_reward_amount: Number(form.statRewardAmount) || 0,
   }
 
-  // Omitted rather than sent as null: a quest's EXP reward is not nullable, so
-  // a blank field means "the rank's default" on create and "leave it" on edit.
-  if (form.expReward.trim() !== "") payload.exp_reward = Number(form.expReward)
+  if (form.unitsPerMinute.trim()) {
+    payload.units_per_minute = Number(form.unitsPerMinute)
+    payload.practice_minutes = Math.max(
+      1,
+      Math.ceil(payload.target_count / payload.units_per_minute)
+    )
+  }
 
   return payload
 }

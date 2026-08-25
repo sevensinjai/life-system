@@ -133,6 +133,21 @@ def test_editing_the_schedule_keeps_the_original_anchor(auth_client) -> None:
     assert updated["schedule"]["anchor"] == anchor
 
 
+def test_editing_minutes_does_not_rewrite_the_open_period(auth_client) -> None:
+    quest = auth_client.post(
+        "/quests", json={"title": "Practice", "practice_minutes": 10}
+    ).json()
+
+    updated = auth_client.patch(
+        f"/quests/{quest['id']}", json={"practice_minutes": 30}
+    ).json()
+
+    assert updated["practice_minutes"] == 30
+    assert updated["current_instance"]["practice_minutes"] == 10
+    completed = auth_client.post(f"/quests/{quest['id']}/complete").json()
+    assert completed["exp_gained"] == 10
+
+
 def test_editing_the_schedule_can_move_the_anchor(auth_client) -> None:
     quest = auth_client.post(
         "/quests",

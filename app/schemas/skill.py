@@ -77,11 +77,21 @@ class SkillDetail(SkillResponse):
 
 
 class PracticeRequest(BaseModel):
-    exp: int = Field(
+    minutes: int | None = Field(
+        default=None,
         gt=0,
-        examples=[50],
-        description="EXP earned by this session. Rolls up to the parent skills.",
+        examples=[30],
+        description="Minutes practised. One minute is one skill EXP.",
     )
+    exp: int | None = Field(default=None, gt=0, description="Deprecated alias for minutes.")
+
+    @property
+    def practice_minutes(self) -> int:
+        if self.minutes is not None:
+            return self.minutes
+        if self.exp is not None:
+            return self.exp
+        raise ValueError("minutes is required")
 
 
 class SkillAwardResponse(BaseModel):

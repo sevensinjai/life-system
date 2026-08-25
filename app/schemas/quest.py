@@ -62,8 +62,20 @@ class QuestCreate(BaseModel):
         default=1, ge=1, description="Units needed to clear one period."
     )
     unit: str | None = Field(default=None, max_length=32, examples=["push-ups", "runs"])
+    units_per_minute: float | None = Field(
+        default=None,
+        gt=0,
+        description="Optional pace used to derive practice_minutes from target_count.",
+        examples=[10],
+    )
     exp_reward: int | None = Field(
-        default=None, ge=0, description="Defaults to the difficulty's standard reward."
+        default=None, ge=1, description="Deprecated alias for practice_minutes."
+    )
+    practice_minutes: int | None = Field(
+        default=None,
+        ge=1,
+        description="Estimated minutes awarded on completion; 1 minute equals 1 EXP.",
+        examples=[10],
     )
     stat_reward: StatName | None = None
     stat_reward_amount: int = Field(default=0, ge=0)
@@ -74,8 +86,7 @@ class QuestCreate(BaseModel):
         default=None,
         ge=0,
         description=(
-            "EXP the linked skill earns. Defaults to the quest's own EXP "
-            "reward when a skill is named and no amount is given."
+            "Deprecated. When supplied, must equal practice_minutes."
         ),
     )
 
@@ -89,7 +100,9 @@ class QuestUpdate(BaseModel):
     difficulty: QuestDifficulty | None = None
     target_count: int | None = Field(default=None, ge=1)
     unit: str | None = Field(default=None, max_length=32)
+    units_per_minute: float | None = Field(default=None, gt=0)
     exp_reward: int | None = Field(default=None, ge=0)
+    practice_minutes: int | None = Field(default=None, ge=1)
     stat_reward: StatName | None = None
     stat_reward_amount: int | None = Field(default=None, ge=0)
     skill_id: int | None = None
@@ -108,6 +121,7 @@ class QuestInstanceResponse(BaseModel):
     )
     progress: int
     target_count: int
+    practice_minutes: int
     status: QuestStatus
     completed_at: datetime | None
 
@@ -133,7 +147,9 @@ class QuestResponse(BaseModel):
     difficulty: QuestDifficulty
     target_count: int
     unit: str | None
+    units_per_minute: float | None
     exp_reward: int
+    practice_minutes: int
     stat_reward: StatName | None
     stat_reward_amount: int
     skill_id: int | None = None

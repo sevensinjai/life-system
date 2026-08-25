@@ -426,7 +426,7 @@ def award_skill_exp(
 
 
 def award_for_quest(
-    db: Session, player: Player, quest, settings: Settings
+    db: Session, player: Player, quest, settings: Settings, *, amount: int | None = None
 ) -> list[SkillAward]:
     """The skill payout for clearing a quest, if it names one.
 
@@ -434,7 +434,8 @@ def award_for_quest(
     rather than failing the completion: clearing the quest is still valid, it
     just trains nothing.
     """
-    if quest.skill_id is None or quest.skill_exp_reward <= 0:
+    amount = quest.skill_exp_reward if amount is None else amount
+    if quest.skill_id is None or amount <= 0:
         return []
 
     skill = db.scalar(
@@ -449,7 +450,7 @@ def award_for_quest(
         db,
         player,
         skill,
-        quest.skill_exp_reward,
+        amount,
         settings,
         source=f"quest:{quest.id}",
     )
@@ -464,7 +465,7 @@ def practice(
 ) -> list[SkillAward]:
     """Log practice that no quest covers."""
     if amount <= 0:
-        raise ValidationError("Practice EXP must be positive.")
+        raise ValidationError("Practice minutes must be positive.")
     return award_skill_exp(db, player, skill, amount, settings, source="practice")
 
 

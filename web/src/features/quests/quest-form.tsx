@@ -101,17 +101,39 @@ export function QuestFields({
         </div>
 
         <div className="grid gap-2">
-          <Label htmlFor={id("exp")}>EXP override</Label>
+          <Label htmlFor={id("minutes")}>Practice minutes</Label>
           <Input
-            id={id("exp")}
+            id={id("minutes")}
             type="number"
-            min={0}
-            placeholder="by rank"
+            min={1}
+            required
+            placeholder="10"
             className="font-mono"
-            value={value.expReward}
-            onChange={(event) => set("expReward", event.target.value)}
+            value={value.practiceMinutes}
+            onChange={(event) => set("practiceMinutes", event.target.value)}
           />
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="grid gap-2">
+          <Label htmlFor={id("pace")}>Units per minute</Label>
+          <Input
+            id={id("pace")}
+            type="number"
+            min={0.01}
+            step="any"
+            placeholder="optional conversion"
+            className="font-mono"
+            value={value.unitsPerMinute}
+            onChange={(event) => set("unitsPerMinute", event.target.value)}
+          />
+        </div>
+        <p className="text-muted-foreground self-end pb-2 text-xs">
+          {value.unitsPerMinute && Number(value.unitsPerMinute) > 0
+            ? `${Math.max(1, Math.ceil((Number(value.targetCount) || 1) / Number(value.unitsPerMinute)))} minutes on completion`
+            : "Set a pace for reps, pages, distance, or another count."}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">

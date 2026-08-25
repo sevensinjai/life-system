@@ -30,7 +30,7 @@ export function QuestCard({
   const busy = progress.isPending || complete.isPending
 
   const facts = [
-    `${quest.exp_reward} EXP`,
+    `${quest.practice_minutes} min · ${quest.practice_minutes} EXP`,
     quest.stat_reward ? `+${quest.stat_reward_amount} ${quest.stat_reward}` : null,
     showSchedule ? quest.schedule.label : null,
   ].filter(Boolean)

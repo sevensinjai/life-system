@@ -112,6 +112,7 @@ export interface QuestInstance {
   period_end: string | null
   progress: number
   target_count: number
+  practice_minutes: number
   status: QuestStatus
   completed_at: string | null
 }
@@ -124,7 +125,9 @@ export interface Quest {
   difficulty: QuestDifficulty
   target_count: number
   unit: string | null
+  units_per_minute: number | null
   exp_reward: number
+  practice_minutes: number
   stat_reward: StatName | null
   stat_reward_amount: number
   is_active: boolean
@@ -148,7 +151,9 @@ export interface QuestPayload {
   difficulty: QuestDifficulty
   target_count: number
   unit?: string | null
+  units_per_minute?: number | null
   exp_reward?: number
+  practice_minutes: number
   stat_reward?: StatName | null
   stat_reward_amount: number
   is_active?: boolean

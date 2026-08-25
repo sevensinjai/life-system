@@ -19,7 +19,9 @@ export function useQuestActions() {
 
   const report = (result: QuestAction) => {
     if (result.completed) {
-      const gained = result.exp_gained ? ` +${result.exp_gained} EXP` : ""
+      const gained = result.exp_gained
+        ? ` +${result.exp_gained} practice min / EXP`
+        : ""
       toast.success(
         `${result.quest.title} cleared.${gained}${result.leveled_up ? " LEVEL UP!" : ""}`
       )

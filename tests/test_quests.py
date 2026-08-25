@@ -8,6 +8,7 @@ PUSHUPS = {
     "difficulty": "D",
     "target_count": 100,
     "unit": "reps",
+    "practice_minutes": 10,
     "stat_reward": "strength",
     "stat_reward_amount": 1,
 }
@@ -22,7 +23,9 @@ def quest(auth_client):
 
 def test_create_quest_opens_an_instance_for_today(quest) -> None:
     assert quest["title"] == "100 push-ups"
-    assert quest["exp_reward"] == 100  # D-rank default
+    assert quest["practice_minutes"] == 10
+    assert quest["exp_reward"] == 10  # deprecated compatibility mirror
+    assert quest["current_instance"]["practice_minutes"] == 10
     assert quest["current_instance"]["progress"] == 0
     assert quest["current_instance"]["target_count"] == 100
     assert quest["current_instance"]["status"] == "active"
@@ -39,11 +42,38 @@ def test_difficulty_sets_the_default_exp_reward(auth_client) -> None:
     assert rewards == {"E": 50, "D": 100, "C": 200, "B": 400, "A": 800, "S": 1600}
 
 
-def test_explicit_exp_reward_overrides_the_default(auth_client) -> None:
+def test_practice_minutes_are_the_completion_exp(auth_client) -> None:
     response = auth_client.post(
-        "/quests", json={"title": "Custom", "difficulty": "S", "exp_reward": 5}
+        "/quests", json={"title": "Custom", "difficulty": "S", "practice_minutes": 5}
     )
+    assert response.json()["practice_minutes"] == 5
     assert response.json()["exp_reward"] == 5
+
+
+def test_count_and_pace_convert_to_completion_minutes(auth_client) -> None:
+    response = auth_client.post(
+        "/quests",
+        json={
+            "title": "100 push-ups",
+            "target_count": 100,
+            "unit": "reps",
+            "units_per_minute": 10,
+        },
+    )
+
+    quest = response.json()
+    assert response.status_code == 201
+    assert quest["practice_minutes"] == 10
+    assert quest["current_instance"]["practice_minutes"] == 10
+
+
+def test_conversion_rounds_partial_minutes_up(auth_client) -> None:
+    quest = auth_client.post(
+        "/quests",
+        json={"title": "Read", "target_count": 21, "units_per_minute": 2},
+    ).json()
+
+    assert quest["practice_minutes"] == 11
 
 
 def test_partial_progress_does_not_complete(auth_client, quest) -> None:
@@ -64,8 +94,8 @@ def test_reaching_the_target_completes_and_pays_out(auth_client, quest) -> None:
     assert body["completed"] is True
     assert body["instance"]["status"] == "completed"
     assert body["instance"]["completed_at"] is not None
-    assert body["exp_gained"] == 100
-    assert body["leveled_up"] is True  # 100 EXP clears level 1
+    assert body["exp_gained"] == 10
+    assert body["leveled_up"] is False
 
 
 def test_completion_grants_the_stat_reward(auth_client, quest) -> None:
@@ -115,7 +145,7 @@ def test_complete_endpoint_clears_regardless_of_progress(auth_client, quest) -> 
     body = response.json()
     assert body["completed"] is True
     assert body["instance"]["progress"] == 100  # snapped up to the target
-    assert body["exp_gained"] == 100
+    assert body["exp_gained"] == 10
 
 
 def test_completing_twice_is_rejected(auth_client, quest) -> None:

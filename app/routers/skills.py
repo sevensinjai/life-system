@@ -196,11 +196,17 @@ def practice(
 ) -> PracticeResponse:
     """Credit practice that no quest covers.
 
-    The EXP lands on this skill and rolls up the branch above it, so training
+    The minutes land on this skill as EXP and roll up the branch above it, so training
     a sub-skill advances the skill it belongs to.
     """
     skill = skill_service.get_skill(db, player, skill_id)
-    awards = skill_service.practice(db, player, skill, payload.exp, settings)
+    try:
+        minutes = payload.practice_minutes
+    except ValueError as exc:
+        from app.errors import ValidationError
+
+        raise ValidationError("Provide practice minutes.") from exc
+    awards = skill_service.practice(db, player, skill, minutes, settings)
     db.commit()
 
     return PracticeResponse(

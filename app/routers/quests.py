@@ -66,7 +66,9 @@ def _build_response(
         difficulty=quest.difficulty,
         target_count=quest.target_count,
         unit=quest.unit,
+        units_per_minute=quest.units_per_minute,
         exp_reward=quest.exp_reward,
+        practice_minutes=quest.practice_minutes,
         stat_reward=quest.stat_reward,
         stat_reward_amount=quest.stat_reward_amount,
         skill_id=quest.skill_id,
@@ -120,7 +122,9 @@ def create(payload: QuestCreate, player: CurrentPlayer, db: DbDep) -> QuestRespo
         difficulty=payload.difficulty,
         target_count=payload.target_count,
         unit=payload.unit,
+        units_per_minute=payload.units_per_minute,
         exp_reward=payload.exp_reward,
+        practice_minutes=payload.practice_minutes,
         stat_reward=payload.stat_reward,
         stat_reward_amount=payload.stat_reward_amount,
         skill_id=payload.skill_id,
@@ -212,18 +216,39 @@ def update(
     fields = payload.model_dump(exclude_unset=True)
     schedule_spec = fields.pop("schedule", None)
 
-    # The skill link is settled together: an amount is only meaningful
-    # alongside the skill it pays, and either may be the one being changed.
-    if "skill_id" in fields or "skill_exp_reward" in fields:
+    new_target = fields.get("target_count", quest.target_count)
+    rate_changed = "units_per_minute" in fields
+    new_rate = fields.get("units_per_minute", quest.units_per_minute)
+
+    new_minutes = fields.pop("practice_minutes", None)
+    legacy_exp = fields.pop("exp_reward", None)
+    if new_minutes is not None and legacy_exp is not None and new_minutes != legacy_exp:
+        raise ValidationError("exp_reward must equal practice_minutes when both are given.")
+    reward_changed = new_minutes is not None or legacy_exp is not None
+    if not reward_changed and new_rate is not None and (
+        rate_changed or "target_count" in fields
+    ):
+        from app.services.quests import minutes_from_rate
+
+        new_minutes = minutes_from_rate(new_target, new_rate)
+        reward_changed = True
+    if reward_changed:
+        quest.practice_minutes = new_minutes if new_minutes is not None else legacy_exp
+        quest.exp_reward = quest.practice_minutes
+
+    # A linked skill always receives the same credited minutes as the player.
+    if "skill_id" in fields or "skill_exp_reward" in fields or reward_changed:
         skill_id = fields.pop("skill_id", quest.skill_id)
         given = fields.pop("skill_exp_reward", None)
+        if given is not None and given != quest.practice_minutes:
+            raise ValidationError("skill_exp_reward must equal practice_minutes.")
         quest.skill_id = skill_id
         quest.skill_exp_reward = resolve_skill_reward(
             db,
             player,
             skill_id,
-            given if given is not None else (quest.skill_exp_reward or None),
-            payload.exp_reward if payload.exp_reward is not None else quest.exp_reward,
+            quest.practice_minutes if skill_id is not None else None,
+            quest.practice_minutes,
         )
 
     for field, value in fields.items():

@@ -145,6 +145,11 @@ class SideQuest(Base):
         back_populates="side_quest", cascade="all, delete-orphan"
     )
 
+    @property
+    def practice_minutes(self) -> int:
+        """Completion value under the system-wide one-minute-per-EXP rule."""
+        return self.exp_reward
+
     def is_open(self, now: datetime) -> bool:
         """Whether the broadcast is out and still taking progress."""
         if self.status is not SideQuestStatus.BROADCAST:

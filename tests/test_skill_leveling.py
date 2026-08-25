@@ -35,7 +35,7 @@ def branch(auth_client) -> tuple[dict, dict, dict]:
 def test_practice_credits_the_skill_and_everything_above_it(auth_client) -> None:
     singing, pitch, jumps = branch(auth_client)
 
-    body = auth_client.post(f"/skills/{jumps['id']}/practice", json={"exp": 60}).json()
+    body = auth_client.post(f"/skills/{jumps['id']}/practice", json={"minutes": 60}).json()
 
     assert [award["name"] for award in body["awards"]] == [
         "Interval jumps",
@@ -151,18 +151,26 @@ def test_a_quest_can_name_a_skill(auth_client) -> None:
     assert quest["skill_exp_reward"] == 200
 
 
-def test_the_skill_reward_can_be_set_apart_from_the_quest_reward(auth_client) -> None:
+def test_the_skill_reward_cannot_be_set_apart_from_practice_minutes(auth_client) -> None:
     _, pitch, _ = branch(auth_client)
 
-    quest = author(auth_client, skill_id=pitch["id"], skill_exp_reward=25)
+    response = auth_client.post(
+        "/quests",
+        json={
+            "title": "Practise scales",
+            "practice_minutes": 20,
+            "skill_id": pitch["id"],
+            "skill_exp_reward": 25,
+        },
+    )
 
-    assert quest["exp_reward"] == 200
-    assert quest["skill_exp_reward"] == 25
+    assert response.status_code == 422
+    assert "must equal practice_minutes" in response.json()["error"]["message"]
 
 
 def test_clearing_a_quest_trains_its_skill_and_the_branch_above(auth_client) -> None:
     singing, pitch, _ = branch(auth_client)
-    quest = author(auth_client, skill_id=pitch["id"], skill_exp_reward=120)
+    quest = author(auth_client, skill_id=pitch["id"], practice_minutes=120)
 
     body = auth_client.post(f"/quests/{quest['id']}/complete").json()
 
@@ -170,7 +178,7 @@ def test_clearing_a_quest_trains_its_skill_and_the_branch_above(auth_client) -> 
         "Pitch accuracy",
         "Singing",
     ]
-    assert body["exp_gained"] == 200  # the player still earns the quest's own EXP
+    assert body["exp_gained"] == 120
     assert auth_client.get(f"/skills/{singing['id']}").json()["level"] == 2
 
 
@@ -178,7 +186,7 @@ def test_progress_that_clears_a_quest_pays_the_skill_too(auth_client) -> None:
     _, pitch, _ = branch(auth_client)
     quest = author(
         auth_client, skill_id=pitch["id"], target_count=3, unit="sets",
-        skill_exp_reward=30,
+        practice_minutes=30,
     )
 
     partial = auth_client.post(f"/quests/{quest['id']}/progress", json={"amount": 2})
@@ -223,14 +231,14 @@ def test_a_quest_cannot_point_at_someone_elses_skill(auth_client, client) -> Non
 def test_a_quest_can_be_relinked_to_another_skill(auth_client) -> None:
     singing = add(auth_client, "Singing")
     guitar = add(auth_client, "Guitar")
-    quest = author(auth_client, skill_id=singing["id"], skill_exp_reward=40)
+    quest = author(auth_client, skill_id=singing["id"], practice_minutes=40)
 
     edited = auth_client.patch(
         f"/quests/{quest['id']}", json={"skill_id": guitar["id"]}
     ).json()
 
     assert edited["skill_id"] == guitar["id"]
-    assert edited["skill_exp_reward"] == 40  # the amount is kept, not reset
+    assert edited["skill_exp_reward"] == 40
 
     auth_client.post(f"/quests/{quest['id']}/complete")
     assert auth_client.get(f"/skills/{guitar['id']}").json()["exp"] == 40

@@ -822,13 +822,14 @@ def complete_offer(
         db,
         player,
         EventType.SIDE_QUEST_COMPLETED,
-        f"{message} (+{side_quest.exp_reward} EXP)",
+        f"{message} (+{side_quest.exp_reward} practice minutes / EXP)",
         {
             "side_quest_id": side_quest.id,
             "offer_id": offer.id,
             **told,
             **_favor_payload(change),
             "exp_gained": side_quest.exp_reward,
+            "practice_minutes": side_quest.exp_reward,
             "stat_reward": (
                 side_quest.stat_reward.value if side_quest.stat_reward else None
             ),

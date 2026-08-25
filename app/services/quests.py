@@ -1,6 +1,7 @@
 """Quest lifecycle: authoring, progress, completion."""
 
 from datetime import date
+from math import ceil
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -27,6 +28,13 @@ from app.services.skills import SkillAward
 def default_exp_for(difficulty: QuestDifficulty) -> int:
     """The EXP a quest of this difficulty is worth unless the author overrides it."""
     return DIFFICULTY_EXP[difficulty]
+
+
+def minutes_from_rate(target_count: int, units_per_minute: float) -> int:
+    """Convert a count-based target to whole credited practice minutes."""
+    if units_per_minute <= 0:
+        raise ValidationError("units_per_minute must be greater than zero.")
+    return max(1, ceil(target_count / units_per_minute))
 
 
 def schedule_of(quest: Quest) -> Schedule:
@@ -96,7 +104,9 @@ def create_quest(
     difficulty: QuestDifficulty = QuestDifficulty.E,
     target_count: int = 1,
     unit: str | None = None,
+    units_per_minute: float | None = None,
     exp_reward: int | None = None,
+    practice_minutes: int | None = None,
     stat_reward: StatName | None = None,
     stat_reward_amount: int = 0,
     skill_id: int | None = None,
@@ -113,9 +123,39 @@ def create_quest(
     if stat_reward_amount < 0:
         raise ValidationError("stat_reward_amount must be non-negative.")
 
-    exp_reward = exp_reward if exp_reward is not None else default_exp_for(difficulty)
+    # `exp_reward` remains a compatibility input. New clients author the real
+    # quantity directly: estimated minutes paid only when the period clears.
+    converted_minutes = (
+        minutes_from_rate(target_count, units_per_minute)
+        if units_per_minute is not None
+        else None
+    )
+    if practice_minutes is not None and converted_minutes is not None:
+        if practice_minutes != converted_minutes:
+            raise ValidationError(
+                "practice_minutes must match target_count / units_per_minute."
+            )
+    if (
+        practice_minutes is not None
+        and exp_reward is not None
+        and practice_minutes != exp_reward
+    ):
+        raise ValidationError("exp_reward must equal practice_minutes when both are given.")
+    practice_minutes = (
+        practice_minutes
+        if practice_minutes is not None
+        else converted_minutes if converted_minutes is not None
+        else exp_reward if exp_reward is not None else default_exp_for(difficulty)
+    )
+    if practice_minutes < 1:
+        raise ValidationError("practice_minutes must be at least 1.")
+    exp_reward = practice_minutes
+    if skill_exp_reward is not None and skill_exp_reward != practice_minutes:
+        raise ValidationError(
+            "skill_exp_reward is no longer independent; it must equal practice_minutes."
+        )
     skill_exp_reward = resolve_skill_reward(
-        db, player, skill_id, skill_exp_reward, exp_reward
+        db, player, skill_id, practice_minutes if skill_id is not None else None, exp_reward
     )
 
     today = today or clock.local_date(player.timezone)
@@ -144,7 +184,9 @@ def create_quest(
         difficulty=difficulty,
         target_count=target_count,
         unit=unit,
+        units_per_minute=units_per_minute,
         exp_reward=exp_reward,
+        practice_minutes=practice_minutes,
         stat_reward=stat_reward,
         stat_reward_amount=stat_reward_amount,
         skill_id=skill_id,
@@ -195,6 +237,7 @@ def get_or_create_instance(
         period_end=period.end,
         progress=0,
         target_count=quest.target_count,
+        practice_minutes=quest.practice_minutes,
         status=QuestStatus.ACTIVE,
     )
     db.add(instance)
@@ -332,20 +375,22 @@ def complete_instance(
     if quest.stat_reward is not None and quest.stat_reward_amount:
         player.add_stat(quest.stat_reward, quest.stat_reward_amount)
 
-    result = award_exp(
-        db, player, quest.exp_reward, settings, source=f"quest:{quest.id}"
+    minutes = instance.practice_minutes
+    result = award_exp(db, player, minutes, settings, source=f"quest:{quest.id}")
+    skill_awards = skills.award_for_quest(
+        db, player, quest, settings, amount=minutes
     )
-    skill_awards = skills.award_for_quest(db, player, quest, settings)
 
     log_event(
         db,
         player,
         EventType.QUEST_COMPLETED,
-        f"Quest complete: {quest.title} (+{quest.exp_reward} EXP)",
+        f"Quest complete: {quest.title} (+{minutes} practice minutes / EXP)",
         {
             "quest_id": quest.id,
             "instance_id": instance.id,
-            "exp_gained": quest.exp_reward,
+            "exp_gained": minutes,
+            "practice_minutes": minutes,
             "stat_reward": quest.stat_reward.value if quest.stat_reward else None,
             "stat_reward_amount": quest.stat_reward_amount,
             "leveled_up": result.leveled_up,

@@ -650,12 +650,24 @@ takes its subtree along, and two moves are refused outright:
 Siblings cannot share a name (case-insensitively); the same name under
 different parents is fine.
 
-### Earning skill EXP
+### Practice time and skill EXP
+
+One EXP is one minute of practice. A quest stores its estimated
+`practice_minutes` and pays them only when the period is completed. Count-based
+quests may instead provide `units_per_minute`; the System rounds
+`target_count / units_per_minute` up to a whole minute. For example, 100
+push-ups at 10 reps per minute are worth 10 practice minutes and therefore 10
+player EXP plus 10 EXP for the linked skill.
+
+The period snapshots its practice minutes when it opens, so editing the quest
+does not change the value of work already underway. Parent-skill roll-up is
+categorisation, not extra elapsed time: 10 minutes credited to Push-ups,
+Calisthenics and Fitness still represents 10 real minutes overall.
 
 | Source | How |
 | ------ | --- |
-| A quest | Give the quest a `skill_id`. It pays `skill_exp_reward`, which defaults to the quest's own EXP reward |
-| Practice | `POST /skills/{id}/practice` with an `exp` amount, for work no quest covers |
+| A quest | Give the quest a `skill_id`; completion credits its `practice_minutes` to both player and skill |
+| Practice | `POST /skills/{id}/practice` with a `minutes` amount, for work no quest covers |
 
 Skills level on the same curve shape as the player, tuned separately through
 `APP_SKILL_EXP_CURVE_BASE` and `APP_SKILL_EXP_CURVE_EXPONENT` — so skills can
