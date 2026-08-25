@@ -3,7 +3,8 @@
 The headless god still swinging, the student with one basket and one gourd,
 the general half of Asia still burns incense for — and beside them the bird
 filling the sea a pebble at a time, the man who chased the sun until the
-rivers ran dry, the clerk who invented writing and made the sky rain grain.
+rivers ran dry, the clerk who invented writing and made the sky rain grain,
+and the singer whose voice was still in the roof beams three days later.
 """
 
 from app.content.entries import ConstellationEntry
@@ -269,6 +270,48 @@ CHINESE: tuple[ConstellationEntry, ...] = (
             "refuse": {"default": ["I have seen you from a long way off. Not yet."]},
             "befriend": {"default": ["Then stand here beside me and look out."]},
             "farewell": {"default": ["I will watch for your boat regardless."]},
+        },
+    ),
+    ConstellationEntry(
+        code="han_e",
+        tradition=MythTradition.CHINESE,
+        code_name="The Voice in the Rafters",
+        code_name_zh_hant="「餘音繞梁」",
+        real_name="Han E",
+        real_name_zh_hant="韓娥",
+        epithet="whose song was still in the beams three days after she left",
+        epithet_zh_hant="餘音繞梁，三日不絕者",
+        description=(
+            "A singer in the Liezi who ran out of food on the road to Qi and "
+            "sang for her supper at the city gate. She left, and for three "
+            "days the sound was still in the rafters — 餘音繞梁，三日不絕. "
+            "Turned away at an inn, she sang in grief and the whole quarter "
+            "wept and could not eat; called back, she sang again and they got "
+            "up and danced. She is not interested in whether you have a good "
+            "voice. She is interested in whether you will use the one you have "
+            "where somebody can hear it."
+        ),
+        domain=None,
+        voice={
+            "offer": {
+                "default": ["Make a sound where it can be heard."],
+                "stranger": ["Nobody is listening yet. Sing anyway; that is how it starts."],
+                "noticed": ["Louder this time. You have been holding back."],
+                "favored": ["You have stopped apologising before you begin. Good."],
+                "champion": ["They will be humming it after you have gone."],
+            },
+            "accept": {"default": ["Then begin. Do not clear your throat twice."]},
+            "decline": {"default": ["Silence, then. It carries less far."]},
+            "complete": {
+                "default": ["It is out of you and into the room. That is the whole art."],
+                "champion": ["Three days from now somebody will still have that in their head."],
+            },
+            "fail": {"default": ["You rehearsed it and did not perform it. I know the difference."]},
+            "expire": {"default": ["The room stayed quiet. Rooms usually do."]},
+            "refuse": {"default": ["Let me hear you first. Badly is acceptable; silently is not."]},
+            "befriend": {"default": ["Then sing where I can hear you. Often, and out loud."]},
+            "rebuff": {"default": ["Not a note. I was listening for it."]},
+            "farewell": {"default": ["Go on singing. It was never for my benefit."]},
         },
     ),
     ConstellationEntry(

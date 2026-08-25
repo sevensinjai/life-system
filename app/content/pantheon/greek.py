@@ -1,9 +1,10 @@
 """The Greek constellations.
 
-Four names anyone would know, and five that reward a second look: the giant
-whose eyes became the peacock's tail, the Titaness who is the reason anything
-is remembered, the huntress nobody outran, the goddess with almost no myths
-and the most important job on Olympus, and the man with the stone.
+Names anyone would know, and others that reward a second look: the giant whose
+eyes became the peacock's tail, the Titaness who is the reason anything is
+remembered, the huntress nobody outran, the goddess with almost no myths and
+the most important job on Olympus, the man with the stone — and the wrestler
+who invented progressive overload two and a half thousand years early.
 """
 
 from app.content.entries import ConstellationEntry
@@ -270,6 +271,46 @@ GREEK: tuple[ConstellationEntry, ...] = (
             "refuse": {"default": ["Keep up with me first, then ask."]},
             "befriend": {"default": ["Fine. Try to stay level."]},
             "farewell": {"default": ["Go quickly, then. It is the only way you go."]},
+        },
+    ),
+    ConstellationEntry(
+        code="milo",
+        tradition=MythTradition.GREEK,
+        code_name="The Calf Carried Daily",
+        code_name_zh_hant="「日負其犢」",
+        real_name="Milo of Croton",
+        real_name_zh_hant="米洛",
+        epithet="who lifted the same animal every day until it was a bull",
+        epithet_zh_hant="日負一犢至於成牛者",
+        description=(
+            "Six times an Olympic champion, and the reason anybody knows what "
+            "progressive overload is: the story says he picked up a newborn "
+            "calf and carried it, and went on carrying the same animal every "
+            "single day, so that when it was a four-year-old bull he was "
+            "still carrying it. He is not impressed by what you can lift "
+            "today. He wants to know what you will be carrying in a year."
+        ),
+        domain=StatName.STRENGTH,
+        voice={
+            "offer": {
+                "default": ["A little more than last time. That is the whole method."],
+                "stranger": ["Everyone starts with a calf. Pick it up."],
+                "noticed": ["Heavier than the last one. Only slightly."],
+                "favored": ["You have been carrying this a while. It shows."],
+                "champion": ["The animal is a bull now and you have not noticed. Again."],
+            },
+            "accept": {"default": ["Then lift it."]},
+            "decline": {"default": ["It grows whether you carry it or not."]},
+            "complete": {
+                "default": ["Logged. Next time, slightly more."],
+                "champion": ["Nobody watching would believe where you started."],
+            },
+            "fail": {"default": ["You skipped a day. The calf did not stop growing."]},
+            "expire": {"default": ["A day off. The animal is heavier tomorrow."]},
+            "refuse": {"default": ["Carry something for a week, then ask me."]},
+            "befriend": {"default": ["Then we begin at the beginning. Small, and every day."]},
+            "rebuff": {"default": ["You put it down. Everyone puts it down once."]},
+            "farewell": {"default": ["Keep lifting. The method works without me."]},
         },
     ),
     ConstellationEntry(

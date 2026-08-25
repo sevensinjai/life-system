@@ -172,4 +172,22 @@ GREEK_CHALLENGES: dict[str, BroadcastEntry] = {
             "fail": {"default": ["It stayed as it was. It usually does."]},
         },
     ),
+    "milo": BroadcastEntry(
+        code="milo.admission",
+        constellation="milo",
+        title="Pick something up ten times",
+        description=(
+            "Anything with weight in it. Ten repetitions, once, before this closes. "
+            "Everybody starts with a calf."
+        ),
+        difficulty=QuestDifficulty.E,
+        target_count=10,
+        unit="reps",
+        window_hours=24,
+        lines={
+            "offer": {"default": ["Ten. Anything heavy. Then we will talk."]},
+            "complete": {"default": ["Good. Now we begin at the beginning, and every day."]},
+            "fail": {"default": ["Ten repetitions. The calf is heavier already."]},
+        },
+    ),
 }

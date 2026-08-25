@@ -7,6 +7,7 @@ import pytest
 from app.content.broadcasts import BROADCASTS
 from app.content.broadcasts import by_code as broadcasts_by_code
 from app.content.broadcasts import for_constellation as broadcasts_for
+from app.content.challenges import CHALLENGES
 from app.content.pantheon import PANTHEON
 from app.content.pantheon import by_code as pantheon_by_code
 from app.models import (
@@ -175,6 +176,66 @@ def test_every_constellation_has_something_to_send() -> None:
         assert broadcasts_for(entry.code), entry.code
 
 
+def test_every_constellation_has_a_full_ladder() -> None:
+    """Twenty rungs each. A thin constellation is a friendship that goes quiet."""
+    for entry in PANTHEON:
+        assert len(broadcasts_for(entry.code)) >= 20, entry.code
+
+
+def test_every_ladder_starts_where_a_stranger_can_reach() -> None:
+    """A new friend must find several rungs open to them on day one."""
+    for entry in PANTHEON:
+        rungs = broadcasts_for(entry.code)
+        ungated = [t for t in rungs if t.min_standing is None]
+        assert len(ungated) >= 10, entry.code
+
+
+def test_every_ladder_climbs(  ) -> None:
+    """And it must go somewhere: easy rungs alone are not a progression."""
+    for entry in PANTHEON:
+        ranks = {t.difficulty for t in broadcasts_for(entry.code)}
+        assert QuestDifficulty.E in ranks, entry.code
+        assert ranks & {QuestDifficulty.A, QuestDifficulty.S}, entry.code
+
+
+def test_the_hard_rungs_give_you_time() -> None:
+    """A fortnight of work inside a day would be a trap, not a trial."""
+    for trial_entry in BROADCASTS:
+        if trial_entry.difficulty in (QuestDifficulty.A, QuestDifficulty.S):
+            assert trial_entry.window_hours >= 96, trial_entry.code
+
+
+def test_only_earned_rungs_are_gated() -> None:
+    """Gating an easy rung would strand a stranger with nothing to do."""
+    for trial_entry in BROADCASTS:
+        if trial_entry.min_standing is not None:
+            assert trial_entry.difficulty in (
+                QuestDifficulty.B,
+                QuestDifficulty.A,
+                QuestDifficulty.S,
+            ), trial_entry.code
+
+
+def test_penalties_stay_rare_and_small() -> None:
+    """A side quest is an offer, not a debt — at any catalogue size."""
+    penalised = [t for t in BROADCASTS if t.penalty_exp]
+
+    assert len(penalised) < len(BROADCASTS) * 0.1
+    for trial_entry in penalised:
+        reward = trial_entry.exp_reward or side_quests.default_exp_for(
+            trial_entry.difficulty
+        )
+        assert trial_entry.penalty_exp < reward, trial_entry.code
+
+
+def test_the_two_personal_constellations_are_here() -> None:
+    """A singer and a body-builder, asked for by name."""
+    codes = set(pantheon_by_code())
+
+    assert "han_e" in codes
+    assert "milo" in codes
+
+
 def test_the_pantheon_spans_every_tradition() -> None:
     found = {entry.tradition for entry in PANTHEON}
 
@@ -214,6 +275,20 @@ def test_every_constellation_is_described() -> None:
 
 def test_written_trials_have_unique_codes() -> None:
     assert len(broadcasts_by_code()) == len(BROADCASTS)
+
+
+def test_no_two_quests_share_a_title() -> None:
+    """Including a constellation's audition against its own ladder.
+
+    A duplicate is always a mistake rather than a design: it means a new
+    friend's first broadcast repeats the thing they did to get in, or that two
+    figures are asking for the same thing in the same words.
+    """
+    titles = [entry.title for entry in BROADCASTS]
+    titles += [entry.title for entry in CHALLENGES.values()]
+
+    duplicates = {title for title in titles if titles.count(title) > 1}
+    assert not duplicates
 
 
 def test_no_written_trial_costs_more_than_it_pays() -> None:
@@ -492,6 +567,43 @@ def test_the_sky_reports_when_something_is_already_out(db, pantheon) -> None:
     broadcasting.schedule_next(db, at=NOW, now=NOW)
 
     assert broadcasting.has_open_broadcast(db, now=NOW) is True
+
+
+def test_each_constellation_keeps_its_own_open_slot(db, pantheon) -> None:
+    """One busy figure must not silence the other twenty-seven."""
+    star = pantheon["xingtian"]
+    broadcasting.schedule_next(db, at=NOW, now=NOW, constellation="xingtian")
+
+    assert broadcasting.has_open_broadcast(
+        db, now=NOW, constellation_id=star.id
+    ) is True
+    assert broadcasting.has_open_broadcast(
+        db, now=NOW, constellation_id=pantheon["hermes"].id
+    ) is False
+
+
+def test_a_scheduling_run_reaches_every_constellation(db, pantheon) -> None:
+    placed = broadcasting.schedule_due_constellations(db, now=NOW)
+
+    assert len(placed) == len(pantheon)
+    assert {p.entry.constellation for p in placed} == set(pantheon)
+
+
+def test_a_scheduling_run_skips_the_ones_still_busy(db, pantheon) -> None:
+    broadcasting.schedule_due_constellations(db, now=NOW)
+
+    again = broadcasting.schedule_due_constellations(db, now=NOW + timedelta(hours=1))
+
+    assert again == []
+
+
+def test_a_constellation_works_up_its_own_ladder(db, pantheon) -> None:
+    """The first thing a new friend hears should be an easy rung."""
+    first = broadcasting.schedule_next(db, now=NOW, constellation="milo")
+
+    assert first is not None
+    assert first.entry.difficulty is QuestDifficulty.E
+    assert first.entry.constellation == "milo"
 
 
 # --------------------------------------------------------------------------

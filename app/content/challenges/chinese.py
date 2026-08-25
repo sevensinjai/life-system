@@ -172,4 +172,22 @@ CHINESE_CHALLENGES: dict[str, BroadcastEntry] = {
             "fail": {"default": ["You filled it with noise. Most people do."]},
         },
     ),
+    "han_e": BroadcastEntry(
+        code="han_e.admission",
+        constellation="han_e",
+        title="Sing one thing, all the way through",
+        description=(
+            "Alone is allowed. Out loud is not optional. One song, from the beginning "
+            "to the end, without stopping to apologise in the middle of it."
+        ),
+        difficulty=QuestDifficulty.E,
+        target_count=1,
+        unit="songs",
+        window_hours=24,
+        lines={
+            "offer": {"default": ["Let me hear one. Badly is acceptable; silently is not."]},
+            "complete": {"default": ["Then sing where I can hear you. Often, and out loud."]},
+            "fail": {"default": ["Not a note. I was listening for it."]},
+        },
+    ),
 }

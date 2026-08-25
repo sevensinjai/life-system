@@ -206,11 +206,14 @@ Three steps, deliberately separate: *what* goes out, *when* it goes out, and
 */15 * * * * cd /srv/system && .venv/bin/python -m scripts.broadcast_side_quests
 ```
 
-`schedule_side_quest` does nothing while a broadcast is still open, so trials
-arrive one at a time rather than three at once, and it walks the catalog in
-rotation — everything written is seen before anything repeats, with a 30-day
-rest before a trial can come round again. Pass a catalog code to send a
-specific one instead.
+`schedule_side_quest` gives **every constellation** its next trial, and each
+keeps its own rotation and its own single open slot — so a figure whose last
+trial is still running is skipped, and twenty-eight of them do not queue
+behind each other. Each works up its own ladder in order, with a 30-day rest
+before any trial repeats. Pass a catalog code to send a specific one instead.
+
+Nobody is flooded by that: what reaches a given player is decided further
+down, by which constellations they befriended and by their own weekly cap.
 
 Offers are settled per player by `POST /system/daily-reset`, which the app
 already calls on launch: unanswered offers expire for free, accepted ones that
@@ -218,8 +221,8 @@ fell short fail and pay their penalty.
 
 ## The constellations
 
-A side quest comes from somebody. The pantheon is **twenty-six figures out of
-real mythology** — nine Greek, nine Chinese, eight Japanese — each remembered
+A side quest comes from somebody. The pantheon is **twenty-eight figures out of
+real mythology** — ten Greek, ten Chinese, eight Japanese — each remembered
 for the thing it now asks of you.
 
 Some are names anyone would know: Athena, Heracles, Hermes, Amaterasu, Guan
@@ -254,6 +257,7 @@ either or both — 「猛志常在」 The Will That Remains.
 | The Grey-Eyed | 「灰眼者」 | Athena | 雅典娜 | intelligence | the craft and the strategy, which she thinks are one thing |
 | The Twelve Labours | 「十二功業」 | Heracles | 赫拉克勒斯 | strength | an impossible list, finished |
 | The Stone, Again | 「復推其石」 | Sisyphus | 薛西弗斯 | strength | beginning again every morning |
+| The Calf Carried Daily | 「日負其犢」 | Milo of Croton | 米洛 | strength | lifting the same animal daily until it was a bull |
 | The Staff and the Serpent | 「蛇杖」 | Asclepius | 阿斯克勒庇俄斯 | vitality | healing so well he was struck down for it |
 | The Well of Remembering | 「記憶之泉」 | Mnemosyne | 謨涅摩敘涅 | intelligence | being the mother of everything worth repeating |
 | The One Never Overtaken | 「未嘗見及者」 | Atalanta | 亞特蘭妲 | agility | losing only to gold, and only because she stopped |
@@ -272,6 +276,7 @@ either or both — 「猛志常在」 The Will That Remains.
 | Who Tasted the Hundred Herbs | 「嘗百草」 | Shennong | 神農 | vitality | being poisoned seventy times a day, on purpose |
 | Thousand-Mile Eyes | 「千里眼」 | Qianliyan | 千里眼 | perception | seeing the ship long before the harbour does |
 | She Who Fled to the Moon | 「奔月」 | Chang'e | 嫦娥 | — | taking the medicine and not being able to come back |
+| The Voice in the Rafters | 「餘音繞梁」 | Han E | 韓娥 | — | a song still in the beams three days later |
 
 ### Japanese
 
@@ -305,12 +310,36 @@ the trials are still English-only until the localization pass. A name is
 identity rather than prose, and worth showing in both scripts at once; a line
 of dialogue is not.
 
-The trials themselves live in `app/content/broadcasts/` — **fifty-eight** of
-them, two or three per constellation, written to be clearable by anyone,
-anywhere, with nothing to buy. Each constellation also has one **trial of
-admission** in `app/content/challenges/`: the smallest true test of what that
-figure is remembered for, set for whoever asks to be befriended. Eighty-four
-written quests in all.
+### The ladder
+
+Every constellation has **twenty trials**, and the rank is a ladder rather
+than a label:
+
+| Rank | Asks for | Window | Offered to |
+| ---- | -------- | ------ | ---------- |
+| E | minutes | 24h | anyone |
+| D | one sitting | 48h | anyone |
+| C | a day, or a few sessions | 72h | anyone |
+| B | several days | 4 days | players it has *noticed* |
+| A | a week | 7 days | players it *favours* |
+| S | a fortnight | 14 days | champions only |
+
+So a constellation you have just befriended asks for five minutes, and the
+same constellation two months later asks for a fortnight. `content/entries.py`
+derives the window and the standing gate from the rank, which means a rung is
+one line of writing and no rung can be authored with a fortnight of work and a
+day to do it in.
+
+The trials live in `app/content/broadcasts/` — **560** of them — plus one
+**trial of admission** per constellation in `app/content/challenges/`: the
+smallest true test of what that figure is remembered for, set for whoever asks
+to be befriended. **588 written quests**, none of which needs equipment,
+money, or anywhere in particular to be.
+
+They are meant to push outward rather than inward. Body, sleep and food; study
+and craft; attention and noticing; keeping your word; going somewhere new;
+being alone on purpose; singing where somebody can hear. The point of the
+System is not the EXP.
 
 ### Befriending a constellation
 
@@ -426,12 +455,14 @@ how the app works, and re-running `scripts/seed_pantheon.py` updates the rows
 in place — matched on `code`, so every player's history with that
 constellation survives the edit.
 
-A twenty-seventh constellation is three additions and no code: an entry in
-`pantheon/<tradition>.py`, an audition in `challenges/<tradition>.py`, and at
-least one trial in `broadcasts/<tradition>.py`. The tests fail if any of the
-three is missing, if a stat is left with nobody who cares about it, or if a
-voice has nothing to say at the four moments that carry a relationship —
-being sent something, clearing it, being turned away, being taken in.
+A twenty-ninth constellation is three additions and no code: an entry in
+`pantheon/<tradition>.py`, an audition in `challenges/<tradition>.py`, and a
+ladder in `broadcasts/<tradition>.py`. The tests fail if any of the three is
+missing, if the ladder is shorter than twenty rungs, if it has no easy rungs a
+stranger could reach or no hard ones to climb toward, if a hard rung is given
+a short window, if an easy one is gated, if two quests anywhere share a title,
+if a stat is left with nobody who cares about it, or if a voice has nothing to
+say at the four moments that carry a relationship.
 
 Lines resolve most specific first: the trial's own line for your standing,
 then its default, then the constellation's, then the plain System register. A
@@ -797,8 +828,9 @@ per-player deadlines, and a shared record of who else cleared a broadcast are
 all further out. So is a second language, which the content layout is shaped
 for but nothing implements.
 
-The pantheon is twenty-six; the mythologies they come from hold hundreds, and
-there are other mythologies. Adding one is three catalog entries and no code.
+The pantheon is twenty-eight; the mythologies they come from hold hundreds,
+and there are other mythologies. Adding one is three catalog entries and no
+code.
 
 On friendship: the arbiter rolls dice. Replacing it with one that reads the
 request is the next obvious move, and everything it would need is already
