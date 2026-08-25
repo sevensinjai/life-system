@@ -23,6 +23,7 @@ export default defineConfig({
         "/auth",
         "/players",
         "/quests",
+        "/skills",
         "/quotes",
         "/side-quests",
         "/constellations",
