@@ -7,7 +7,7 @@ import { defineConfig } from "vite"
 // The client is served from /web by the API in production, and from Vite's own
 // dev server (proxying to the API) while developing.
 export default defineConfig({
-  base: "/web/",
+  base: process.env.LIFE_SYSTEM_CLOUDFLARE ? "/" : "/web/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

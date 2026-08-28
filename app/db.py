@@ -3,6 +3,7 @@
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -46,8 +47,24 @@ def create_engine_from_url(database_url: str):
     return engine
 
 
-engine = create_engine_from_url(get_settings().database_url)
+engine: Engine = create_engine_from_url(get_settings().database_url)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+def configure_d1(d1_binding) -> None:
+    """Point the process-wide session factory at a Worker D1 binding.
+
+    Local development and tests continue to use ordinary SQLite.  A Python
+    Worker calls this once, before handling its first request or scheduled
+    event, so the existing SQLAlchemy service layer can run against D1.
+    """
+    global engine
+
+    from sqlalchemy_cloudflare_d1 import create_engine_from_binding
+
+    engine.dispose()
+    engine = create_engine_from_binding(d1_binding)
+    SessionLocal.configure(bind=engine)
 
 
 def get_db() -> Generator[Session, None, None]:

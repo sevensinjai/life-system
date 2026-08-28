@@ -52,9 +52,9 @@ def test_client_declares_a_mobile_viewport() -> None:
 
 
 def test_vite_builds_for_the_mount_path() -> None:
-    """A base other than /web/ would emit asset URLs the API does not serve."""
+    """Local builds use /web while Cloudflare's asset binding uses root."""
     config = (WEB_SOURCE / "vite.config.ts").read_text()
-    assert 'base: "/web/"' in config
+    assert 'process.env.LIFE_SYSTEM_CLOUDFLARE ? "/" : "/web/"' in config
 
 
 def test_dev_server_proxies_every_api_prefix(client: TestClient) -> None:

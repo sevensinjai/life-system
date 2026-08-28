@@ -46,6 +46,39 @@ uvicorn app.main:app --reload
 - Interactive docs: http://127.0.0.1:8000/docs
 - OpenAPI schema: http://127.0.0.1:8000/openapi.json
 
+## Deploy to Cloudflare
+
+Production runs as one Cloudflare Worker: FastAPI uses the Python Workers ASGI
+adapter, the React build is served by Workers Static Assets, and SQLAlchemy is
+backed by D1. Cron Triggers run resets every 15 minutes and schedule a new side
+quest daily.
+
+The shared credentials in `../tomchan/infra/.env` need these token permissions:
+
+- Account / Workers Scripts / Edit
+- Account / D1 / Edit
+- Zone / Workers Routes / Edit (when attaching `system.tomchan.uk`)
+
+One-time setup:
+
+```bash
+source ../tomchan/infra/.env
+npx wrangler d1 create life-system
+# Copy the returned database_id into wrangler.jsonc.
+python -c 'import secrets; print(secrets.token_urlsafe(32))'
+npx wrangler secret put APP_JWT_SECRET
+```
+
+Deploy after setup:
+
+```bash
+bash scripts/deploy_cloudflare.sh
+```
+
+The script builds the root-based Cloudflare frontend, applies remote D1
+migrations, and deploys the Worker. Local builds retain the existing `/web/`
+mount.
+
 ## Test
 
 ```bash

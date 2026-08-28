@@ -4,5 +4,5 @@ pydantic-settings>=2.4
 sqlalchemy>=2.0
 alembic>=1.13
 pyjwt>=2.8
-pwdlib[argon2]>=0.2
 email-validator>=2.0
+sqlalchemy-cloudflare-d1>=0.3.11
