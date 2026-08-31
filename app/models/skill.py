@@ -39,6 +39,7 @@ class Skill(Base):
 
     name: Mapped[str] = mapped_column(String(80))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    icon_key: Mapped[str | None] = mapped_column(String(120), nullable=True)
 
     level: Mapped[int] = mapped_column(Integer, default=1)
     # EXP toward the NEXT level, not a lifetime total — as on Player.

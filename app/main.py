@@ -14,6 +14,7 @@ from app.routers import (
     constellations,
     health,
     players,
+    practice,
     quests,
     quotes,
     side_quests,
@@ -60,6 +61,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(health.router)
     app.include_router(auth.router)
     app.include_router(players.router)
+    app.include_router(practice.router)
     app.include_router(quests.router)
     app.include_router(quotes.router)
     app.include_router(side_quests.router)

@@ -12,6 +12,7 @@ class SkillCreate(BaseModel):
         min_length=1, max_length=MAX_NAME_LENGTH, examples=["Pitch accuracy"]
     )
     description: str | None = None
+    icon_key: str | None = Field(default=None, max_length=120, pattern=r"^[a-z0-9-]+$")
     parent_id: int | None = Field(
         default=None,
         description="Nest this skill under another. Omit for a top-level skill.",
@@ -27,6 +28,7 @@ class SkillUpdate(BaseModel):
 
     name: str | None = Field(default=None, min_length=1, max_length=MAX_NAME_LENGTH)
     description: str | None = None
+    icon_key: str | None = Field(default=None, max_length=120, pattern=r"^[a-z0-9-]+$")
     parent_id: int | None = None
     is_active: bool | None = Field(
         default=None,
@@ -46,6 +48,7 @@ class SkillResponse(BaseModel):
     parent_id: int | None
     name: str
     description: str | None
+    icon_key: str | None
     level: int
     exp: int = Field(description="EXP toward the next level, not a lifetime total.")
     exp_to_next_level: int
@@ -84,6 +87,8 @@ class PracticeRequest(BaseModel):
         description="Minutes practised. One minute is one skill EXP.",
     )
     exp: int | None = Field(default=None, gt=0, description="Deprecated alias for minutes.")
+    note: str | None = Field(default=None, max_length=10_000)
+    attachments: list["PracticeAttachmentCreate"] = Field(default_factory=list, max_length=8)
 
     @property
     def practice_minutes(self) -> int:
@@ -124,6 +129,35 @@ class SkillAwardResponse(BaseModel):
         ]
 
 
+class PracticeAttachmentCreate(BaseModel):
+    kind: str = Field(pattern="^(image|audio)$")
+    filename: str = Field(min_length=1, max_length=255)
+    content_type: str = Field(min_length=1, max_length=100)
+    data_base64: str = Field(min_length=1)
+
+
+class PracticeAttachmentResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kind: str
+    filename: str
+    content_type: str
+    byte_count: int
+
+
+class PracticeEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    skill_id: int
+    skill_name: str
+    minutes: int
+    note: str | None
+    created_at: datetime
+    attachments: list[PracticeAttachmentResponse] = Field(default_factory=list)
+
+
 class PracticeResponse(BaseModel):
     """What a practice session did to the branch it sits on."""
 
@@ -131,3 +165,7 @@ class PracticeResponse(BaseModel):
     awards: list[SkillAwardResponse] = Field(
         description="Every skill credited, the one trained first."
     )
+    entry: PracticeEntryResponse
+
+
+PracticeRequest.model_rebuild()

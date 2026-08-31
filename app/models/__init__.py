@@ -24,6 +24,7 @@ from app.models.enums import (
 )
 from app.models.event import SystemEvent
 from app.models.player import Player
+from app.models.practice import PracticeAttachment, PracticeEntry
 from app.models.quest import Penalty, Quest, QuestInstance
 from app.models.quote import Quote
 from app.models.side_quest import SideQuest, SideQuestOffer, SideQuestPreference
@@ -43,6 +44,8 @@ __all__ = [
     "FriendshipStatus",
     "Penalty",
     "Player",
+    "PracticeAttachment",
+    "PracticeEntry",
     "Quest",
     "QuestDifficulty",
     "QuestInstance",

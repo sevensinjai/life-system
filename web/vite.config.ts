@@ -24,6 +24,7 @@ export default defineConfig({
         "/players",
         "/quests",
         "/skills",
+        "/practice-attachments",
         "/quotes",
         "/side-quests",
         "/constellations",

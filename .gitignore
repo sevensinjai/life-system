@@ -14,3 +14,9 @@ system.db
 # Web client
 web/node_modules/
 web/dist/
+# Local Xcode output produced by the iOS harness.
+.build/
+**/xcuserdata/
+
+# Local project context contains development credentials.
+PROJECT_CONTEXT.md

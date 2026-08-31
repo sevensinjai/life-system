@@ -1,13 +1,18 @@
 """Designing the skill graph and training it."""
 
+import base64
+import binascii
+
 from fastapi import APIRouter, Query, status
 
 from app.config import Settings
 from app.deps import CurrentPlayer, DbDep, SettingsDep
-from app.models import Skill
+from app.models import PracticeAttachment, PracticeEntry, Skill
 from app.schemas.skill import (
     PracticeRequest,
     PracticeResponse,
+    PracticeAttachmentResponse,
+    PracticeEntryResponse,
     SkillAwardResponse,
     SkillCreate,
     SkillDetail,
@@ -29,6 +34,7 @@ def _to_response(skill: Skill, settings: Settings, depth: int) -> SkillResponse:
         parent_id=skill.parent_id,
         name=skill.name,
         description=skill.description,
+        icon_key=skill.icon_key,
         level=skill.level,
         exp=skill.exp,
         exp_to_next_level=to_next,
@@ -51,6 +57,18 @@ def _depth(db, player, skill: Skill) -> int:
     return skill_service.depth_of(skill_service.parent_map(db, player), skill.id)
 
 
+def _entry_response(entry: PracticeEntry, skill_name: str) -> PracticeEntryResponse:
+    return PracticeEntryResponse(
+        id=entry.id,
+        skill_id=entry.skill_id,
+        skill_name=skill_name,
+        minutes=entry.minutes,
+        note=entry.note,
+        created_at=entry.created_at,
+        attachments=[PracticeAttachmentResponse.model_validate(item) for item in entry.attachments],
+    )
+
+
 @router.post(
     "",
     response_model=SkillResponse,
@@ -71,6 +89,7 @@ def create(
         settings,
         name=payload.name,
         description=payload.description,
+        icon_key=payload.icon_key,
         parent_id=payload.parent_id,
     )
     db.commit()
@@ -150,6 +169,8 @@ def update(
         skill.name = skill_service.rename(db, player, skill, payload.name)
     if "description" in fields:
         skill.description = payload.description
+    if "icon_key" in fields:
+        skill.icon_key = payload.icon_key
     if "parent_id" in fields:
         skill_service.reparent(db, player, skill, settings, payload.parent_id)
     if payload.is_active is not None:
@@ -206,10 +227,75 @@ def practice(
         from app.errors import ValidationError
 
         raise ValidationError("Provide practice minutes.") from exc
+    note = payload.note.strip() if payload.note else None
+    entry = PracticeEntry(
+        player_id=player.id,
+        skill_id=skill.id,
+        minutes=minutes,
+        note=note or None,
+    )
+    total_bytes = 0
+    for upload in payload.attachments:
+        if not upload.content_type.startswith(f"{upload.kind}/"):
+            from app.errors import ValidationError
+
+            raise ValidationError("Attachment kind and content type do not match.")
+        try:
+            data = base64.b64decode(upload.data_base64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            from app.errors import ValidationError
+
+            raise ValidationError("Attachment data is not valid base64.") from exc
+        if len(data) > 10 * 1024 * 1024:
+            from app.errors import ValidationError
+
+            raise ValidationError("Each attachment must be 10 MB or smaller.")
+        total_bytes += len(data)
+        if total_bytes > 25 * 1024 * 1024:
+            from app.errors import ValidationError
+
+            raise ValidationError("Practice attachments must total 25 MB or less.")
+        entry.attachments.append(
+            PracticeAttachment(
+                kind=upload.kind,
+                filename=upload.filename,
+                content_type=upload.content_type,
+                byte_count=len(data),
+                data=data,
+            )
+        )
+    db.add(entry)
     awards = skill_service.practice(db, player, skill, minutes, settings)
     db.commit()
+    db.refresh(entry)
 
     return PracticeResponse(
         skill=_to_response(skill, settings, _depth(db, player, skill)),
         awards=SkillAwardResponse.from_awards(awards),
+        entry=_entry_response(entry, skill.name),
     )
+
+
+@router.get(
+    "/{skill_id}/practice",
+    response_model=list[PracticeEntryResponse],
+    summary="Practice journal for a skill",
+)
+def practice_history(
+    skill_id: int,
+    player: CurrentPlayer,
+    db: DbDep,
+    limit: int = Query(default=50, ge=1, le=200),
+) -> list[PracticeEntryResponse]:
+    from sqlalchemy import select
+
+    skill = skill_service.get_skill(db, player, skill_id)
+    entries = list(
+        db.scalars(
+            select(PracticeEntry)
+            .where(PracticeEntry.player_id == player.id, PracticeEntry.skill_id == skill.id)
+            .order_by(PracticeEntry.created_at.desc(), PracticeEntry.id.desc())
+            .limit(limit)
+        )
+    )
+    return [_entry_response(entry, skill.name) for entry in entries]

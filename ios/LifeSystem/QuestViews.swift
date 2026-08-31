@@ -1,0 +1,112 @@
+import SwiftUI
+
+struct BoardView: View {
+    @State private var quests: [Quest] = []
+    @State private var errorMessage: String?
+    @State private var busyID: Int?
+    @State private var showingCreate = false
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                LazyVStack(spacing: 14) {
+                    HStack(alignment: .bottom) {
+                        SystemHeader(title: "Quest Board", eyebrow: "Active missions")
+                        Button { showingCreate = true } label: {
+                            Image(systemName: "plus")
+                                .font(.headline.bold())
+                                .frame(width: 42, height: 42)
+                                .background(SystemTheme.cyan)
+                                .foregroundStyle(SystemTheme.background)
+                                .overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.4)) }
+                        }
+                        .accessibilityLabel("Create quest")
+                    }
+                    if quests.isEmpty && errorMessage == nil {
+                        ContentUnavailableView("Board clear", systemImage: "checkmark.seal", description: Text("No quests are open right now."))
+                    }
+                    ForEach(quests) { quest in
+                        QuestCard(quest: quest, busy: busyID == quest.id) { action in Task { await perform(action, quest: quest) } }
+                    }
+                    if let errorMessage { Text(errorMessage).foregroundStyle(.red).font(.footnote) }
+                }.padding()
+            }.background(SystemBackdrop()).toolbar(.hidden, for: .navigationBar)
+             .task { await load() }.refreshable { await load() }
+             .sheet(isPresented: $showingCreate) {
+                 CreateQuestView { _ in Task { await load() } }
+             }
+        }
+    }
+
+    private func load() async { do { quests = try await APIClient.shared.request("/quests/today"); errorMessage = nil } catch { errorMessage = error.localizedDescription } }
+    private func perform(_ action: QuestCard.Action, quest: Quest) async {
+        busyID = quest.id; defer { busyID = nil }
+        do {
+            let _: QuestAction
+            switch action {
+            case .add: _ = try await APIClient.shared.request("/quests/\(quest.id)/progress", method: "POST", body: ["amount": 1]) as QuestAction
+            case .complete: _ = try await APIClient.shared.request("/quests/\(quest.id)/complete", method: "POST") as QuestAction
+            }
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+}
+
+struct QuestCard: View {
+    enum Action { case add, complete }
+    let quest: Quest
+    let busy: Bool
+    let action: (Action) -> Void
+
+    var body: some View {
+        SystemCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    Text(quest.difficulty).font(.headline.monospaced()).foregroundStyle(quest.difficulty.contains(where: "ABS".contains) ? SystemTheme.gold : SystemTheme.cyan)
+                        .frame(width: 34, height: 34).background(SystemTheme.surfaceRaised).overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.25)) }
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(quest.title).font(.headline)
+                        Text("\(quest.practiceMinutes) min · \(quest.practiceMinutes) EXP · \(quest.schedule.label)").font(.caption).foregroundStyle(SystemTheme.muted)
+                    }
+                }
+                if let description = quest.description { Text(description).font(.subheadline).foregroundStyle(SystemTheme.muted) }
+                if let instance = quest.currentInstance {
+                    let fraction = min(Double(instance.progress) / Double(max(instance.targetCount, 1)), 1)
+                    VStack(spacing: 6) {
+                        HStack { Text("\(instance.progress) / \(instance.targetCount) \(quest.unit ?? "")"); Spacer(); Text(instance.periodEnd.map { "DUE \($0)" } ?? "NO DEADLINE") }
+                            .font(.caption2.monospaced()).foregroundStyle(SystemTheme.muted)
+                        ProgressView(value: fraction).tint(SystemTheme.cyan)
+                    }
+                    HStack {
+                        Button { action(.add) } label: { Label("+1", systemImage: "plus") }.buttonStyle(.bordered)
+                        Button { action(.complete) } label: { Label("Complete", systemImage: "checkmark") }.buttonStyle(.borderedProminent)
+                    }.frame(maxWidth: .infinity, alignment: .trailing).disabled(busy)
+                }
+            }
+        }
+    }
+}
+
+struct QuestLibraryView: View {
+    @State private var quests: [Quest] = []
+    @State private var showingCreate = false
+    var body: some View {
+        NavigationStack {
+            List(quests) { quest in
+                HStack { Text(quest.difficulty).font(.headline.monospaced()).foregroundStyle(SystemTheme.cyan); VStack(alignment: .leading) { Text(quest.title); Text(quest.schedule.label).font(.caption).foregroundStyle(.secondary) }; Spacer(); Text("\(quest.practiceMinutes) EXP").font(.caption.monospaced()) }
+            }
+            .navigationTitle("All Quests")
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button { showingCreate = true } label: { Label("New quest", systemImage: "plus") }
+                }
+            }
+            .task { await load() }
+            .refreshable { await load() }
+            .sheet(isPresented: $showingCreate) {
+                CreateQuestView { _ in Task { await load() } }
+            }
+        }
+    }
+    private func load() async { quests = (try? await APIClient.shared.request("/quests")) ?? [] }
+}

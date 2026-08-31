@@ -243,6 +243,7 @@ def create_skill(
     *,
     name: str,
     description: str | None = None,
+    icon_key: str | None = None,
     parent_id: int | None = None,
 ) -> Skill:
     """Add a skill, optionally beneath one that already exists."""
@@ -264,6 +265,7 @@ def create_skill(
         parent_id=parent_id,
         name=name,
         description=description,
+        icon_key=icon_key,
     )
     db.add(skill)
     db.flush()

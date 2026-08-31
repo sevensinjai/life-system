@@ -1,0 +1,4 @@
+interface:
+  display_name: "iOS Harness"
+  short_description: "Build and test Life System features in iOS Simulator"
+  default_prompt: "Use $harness to build and test this iOS feature in the simulator."

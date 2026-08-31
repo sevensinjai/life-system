@@ -290,6 +290,21 @@ def test_renaming_and_describing_a_skill(auth_client) -> None:
     assert edited["description"] == "Range and control."
 
 
+def test_skill_icon_can_be_created_and_changed(auth_client) -> None:
+    created = auth_client.post(
+        "/skills", json={"name": "Swordsmanship", "icon_key": "game-lorc-broadsword"}
+    )
+    assert created.status_code == 201
+    assert created.json()["icon_key"] == "game-lorc-broadsword"
+
+    changed = auth_client.patch(
+        f"/skills/{created.json()['id']}",
+        json={"icon_key": "game-lorc-crossed-swords"},
+    )
+    assert changed.status_code == 200
+    assert changed.json()["icon_key"] == "game-lorc-crossed-swords"
+
+
 def test_a_missing_skill_is_a_404(auth_client) -> None:
     response = auth_client.get("/skills/9999")
 

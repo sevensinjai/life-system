@@ -1,5 +1,7 @@
 """Skill EXP: practice, roll-up to parent skills, and quests that train one."""
 
+import base64
+
 import pytest
 
 from app.config import Settings
@@ -55,6 +57,38 @@ def test_a_top_level_skill_credits_only_itself(auth_client) -> None:
     assert body["skill"]["exp"] == 40
     assert body["skill"]["exp_to_next_level"] == 100
     assert body["skill"]["exp_progress"] == 0.4
+
+
+def test_practice_persists_a_note_and_media_journal_entry(auth_client) -> None:
+    guitar = add(auth_client, "Guitar")
+    photo = b"small-image-fixture"
+
+    body = auth_client.post(
+        f"/skills/{guitar['id']}/practice",
+        json={
+            "minutes": 25,
+            "note": "Chord changes felt smoother today.",
+            "attachments": [
+                {
+                    "kind": "image",
+                    "filename": "fingering.jpg",
+                    "content_type": "image/jpeg",
+                    "data_base64": base64.b64encode(photo).decode(),
+                }
+            ],
+        },
+    ).json()
+
+    assert body["entry"]["minutes"] == 25
+    assert body["entry"]["note"] == "Chord changes felt smoother today."
+    assert body["entry"]["attachments"][0]["byte_count"] == len(photo)
+
+    history = auth_client.get(f"/skills/{guitar['id']}/practice").json()
+    assert [entry["id"] for entry in history] == [body["entry"]["id"]]
+    attachment_id = history[0]["attachments"][0]["id"]
+    download = auth_client.get(f"/practice-attachments/{attachment_id}")
+    assert download.content == photo
+    assert download.headers["content-type"] == "image/jpeg"
 
 
 def test_enough_practice_levels_a_skill_up(auth_client) -> None:
