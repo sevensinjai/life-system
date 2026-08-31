@@ -1,5 +1,109 @@
 import SwiftUI
 
+private struct ProofSkillPayload: Codable {
+    let name: String
+    let description: String?
+    let parentId: Int?
+    let iconKey: String?
+}
+
+private struct ProofPracticeAttachment: Codable {
+    let kind: String
+    let filename: String
+    let contentType: String
+    let dataBase64: String
+}
+
+private struct ProofPracticePayload: Codable {
+    let minutes: Int
+    let note: String?
+    let attachments: [ProofPracticeAttachment]
+}
+
+private struct ProofSchedule: Codable { let kind: String }
+private struct ProofQuestPayload: Codable {
+    let title: String
+    let description: String?
+    let schedule: ProofSchedule
+    let difficulty: String
+    let targetCount: Int
+    let unit: String?
+    let practiceMinutes: Int
+    let statReward: String?
+    let statRewardAmount: Int
+    let skillId: Int?
+}
+
+struct ProgressionProofScreen: View {
+    @State private var checks: [(String, Bool, String)] = []
+    @State private var running = true
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(Array(checks.enumerated()), id: \.offset) { _, check in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: check.1 ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                                .foregroundStyle(check.1 ? .green : .red)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(check.0).font(.headline)
+                                Text(check.2).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                } header: { Text("Durable core loop") }
+            }
+            .overlay { if running { ProgressView("Exercising progression…") } }
+            .navigationTitle("Progression Proof")
+            .task { await run() }
+        }
+    }
+
+    @MainActor private func run() async {
+        do {
+            let store = LocalDataStore.shared
+            let before: PlayerStatus = try await store.request("/players/me")
+            let questAward = max(1, before.expToNextLevel - before.exp + 10)
+            var roots: [SkillNode] = try await store.request("/skills")
+            let root: SkillSummary
+            if let existing = roots.first(where: { $0.name == "Progression Proof" })?.summary { root = existing }
+            else { root = try await store.request("/skills", method: "POST", body: ProofSkillPayload(name: "Progression Proof", description: "Integration proof", parentId: nil, iconKey: nil)) }
+            roots = try await store.request("/skills")
+            let child: SkillSummary
+            if let existing = roots.flatMap(\.children).first(where: { $0.name == "Daily Practice" })?.summary { child = existing }
+            else { child = try await store.request("/skills", method: "POST", body: ProofSkillPayload(name: "Daily Practice", description: nil, parentId: root.id, iconKey: nil)) }
+
+            let proofBytes = Data("saved proof".utf8)
+            let practice: PracticeResult = try await store.request("/skills/\(child.id)/practice", method: "POST", body: ProofPracticePayload(minutes: 120, note: "Persistence proof", attachments: [.init(kind: "audio", filename: "proof.m4a", contentType: "audio/mp4", dataBase64: proofBytes.base64EncodedString())]))
+            let quest: Quest = try await store.request("/quests", method: "POST", body: ProofQuestPayload(title: "Complete the proof loop", description: nil, schedule: .init(kind: "daily"), difficulty: "E", targetCount: 1, unit: "session", practiceMinutes: questAward, statReward: "strength", statRewardAmount: 1, skillId: child.id))
+            let action: QuestAction = try await store.request("/quests/\(quest.id)/complete", method: "POST")
+
+            let after: PlayerStatus = try await store.request("/players/me")
+            let afterRoots: [SkillNode] = try await store.request("/skills")
+            let today: [Quest] = try await store.request("/quests/today")
+            let entries: [PracticeEntry] = try await store.request("/skills/\(child.id)/practice")
+            let savedBytes: Data? = if let attachmentID = entries.first?.attachments.first?.id { try await store.request("/practice-attachments/\(attachmentID)") } else { nil }
+            let updatedRoot = afterRoots.first(where: { $0.id == root.id })
+            let updatedChild = updatedRoot?.children.first(where: { $0.id == child.id })
+
+            checks = [
+                ("Player reward applied", after.totalExpEarned == before.totalExpEarned + questAward, "\(before.totalExpEarned) → \(after.totalExpEarned) total EXP"),
+                ("Level curve applied", action.leveledUp && after.level > before.level, "Level \(before.level) → \(after.level)"),
+                ("Stat reward applied", after.stats.strength == before.stats.strength + 1, "Strength \(before.stats.strength) → \(after.stats.strength)"),
+                ("Completed quest left Today", !today.contains(where: { $0.id == quest.id }), "Quest #\(quest.id) is completed"),
+                ("Child remains nested", updatedChild?.parentId == root.id && updatedChild?.depth == 2, "\(root.name) › \(child.name)"),
+                ("Practice and quest train child", (updatedChild?.totalExpEarned ?? 0) >= child.totalExpEarned + 120 + questAward, "+120 practice, +\(questAward) quest"),
+                ("Awards roll up to parent", (updatedRoot?.totalExpEarned ?? 0) >= root.totalExpEarned + 120 + questAward, "Parent received both awards"),
+                ("Journal and media persist", entries.first?.attachments.count == 1 && practice.entry.attachments.count == 1 && savedBytes == proofBytes, "Saved note with \(savedBytes?.count ?? 0) bytes")
+            ]
+        } catch {
+            checks = [("Progression proof failed", false, error.localizedDescription)]
+        }
+        running = false
+    }
+}
+
 struct LockScreenWidgetSimulationView: View {
     private let quote = "The work you do today becomes your strength tomorrow."
 

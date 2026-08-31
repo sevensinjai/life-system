@@ -44,6 +44,10 @@ struct RootView: View {
                 CreateQuestView(onCreated: { _ in })
             } else if ProcessInfo.processInfo.arguments.contains("-dashboardPreview") {
                 DashboardPreviewScreen()
+            } else if ProcessInfo.processInfo.arguments.contains("-progressionProof") {
+                ProgressionProofScreen()
+            } else if ProcessInfo.processInfo.arguments.contains("-questRewardPreview") {
+                QuestRewardPreviewScreen()
             } else {
                 MainTabView()
             }

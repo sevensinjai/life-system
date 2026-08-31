@@ -143,9 +143,27 @@ struct Quest: Codable, Identifiable {
     let practiceMinutes: Int
     let statReward: String?
     let statRewardAmount: Int
+    let skillId: Int?
     let isActive: Bool
     let currentInstance: QuestInstance?
     let nextDueDate: String?
+
+    init(id: Int, title: String, description: String?, schedule: QuestSchedule, difficulty: String, targetCount: Int, unit: String?, practiceMinutes: Int, statReward: String?, statRewardAmount: Int, skillId: Int? = nil, isActive: Bool, currentInstance: QuestInstance?, nextDueDate: String?) {
+        self.id = id
+        self.title = title
+        self.description = description
+        self.schedule = schedule
+        self.difficulty = difficulty
+        self.targetCount = targetCount
+        self.unit = unit
+        self.practiceMinutes = practiceMinutes
+        self.statReward = statReward
+        self.statRewardAmount = statRewardAmount
+        self.skillId = skillId
+        self.isActive = isActive
+        self.currentInstance = currentInstance
+        self.nextDueDate = nextDueDate
+    }
 }
 
 struct QuestSchedule: Codable { let label: String }

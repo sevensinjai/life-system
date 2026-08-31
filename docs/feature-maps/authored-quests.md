@@ -38,7 +38,7 @@ Contracts: `app/schemas/quest.py`; routes: `app/routers/quests.py`.
 ## Clients and gaps
 
 - Web: board, authoring/edit sheet, archive/restore, progress, and completion under `web/src/features/quests`.
-- iOS: `QuestViews.swift` provides board progress/completion and the quest library. `CreateQuestView.swift` authors one-time, daily, selected-weekday, interval, and weekly quests with target, rank, practice-minute/EXP reward, and optional stat reward. Starting the form from a skill detail pre-links that skill. General skill selection, editing, archive/restore, custom progress amounts, and pace conversion are not implemented.
+- iOS: `QuestViews.swift` provides board progress/completion, a completion reward receipt, and the quest library. `CreateQuestView.swift` authors one-time, daily, selected-weekday, interval, and weekly quests with target, rank, practice-minute/EXP reward, and optional stat reward. Starting the form from a skill detail pre-links that skill. The offline-first store applies player EXP, level/stat-point changes, direct stat rewards, linked-skill roll-up, event history, and Today removal atomically and rejects duplicate payouts from an already completed instance. General skill selection, editing, archive/restore, custom progress amounts, and pace conversion are not implemented.
 
 ## Verification
 

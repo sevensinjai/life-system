@@ -1,10 +1,18 @@
 import SwiftUI
 
 struct BoardView: View {
+    private struct RewardReceipt: Identifiable {
+        let id = UUID()
+        let title: String
+        let exp: Int
+        let leveledUp: Bool
+    }
+
     @State private var quests: [Quest] = []
     @State private var errorMessage: String?
     @State private var busyID: Int?
     @State private var showingCreate = false
+    @State private var rewardReceipt: RewardReceipt?
 
     var body: some View {
         NavigationStack {
@@ -23,7 +31,14 @@ struct BoardView: View {
                         .accessibilityLabel("Create quest")
                     }
                     if quests.isEmpty && errorMessage == nil {
-                        ContentUnavailableView("Board clear", systemImage: "checkmark.seal", description: Text("No quests are open right now."))
+                        ContentUnavailableView {
+                            Label("No missions open", systemImage: "checkmark.seal")
+                        } description: {
+                            Text("Create a quest or return when the next routine opens.")
+                        } actions: {
+                            Button("Create a quest") { showingCreate = true }
+                                .buttonStyle(.borderedProminent)
+                        }
                     }
                     ForEach(quests) { quest in
                         QuestCard(quest: quest, busy: busyID == quest.id) { action in Task { await perform(action, quest: quest) } }
@@ -35,6 +50,9 @@ struct BoardView: View {
              .sheet(isPresented: $showingCreate) {
                  CreateQuestView { _ in Task { await load() } }
              }
+             .sheet(item: $rewardReceipt) { receipt in
+                 QuestRewardView(title: receipt.title, exp: receipt.exp, leveledUp: receipt.leveledUp)
+             }
         }
     }
 
@@ -42,13 +60,66 @@ struct BoardView: View {
     private func perform(_ action: QuestCard.Action, quest: Quest) async {
         busyID = quest.id; defer { busyID = nil }
         do {
-            let _: QuestAction
+            let result: QuestAction
             switch action {
-            case .add: _ = try await LocalDataStore.shared.request("/quests/\(quest.id)/progress", method: "POST", body: ["amount": 1]) as QuestAction
-            case .complete: _ = try await LocalDataStore.shared.request("/quests/\(quest.id)/complete", method: "POST") as QuestAction
+            case .add: result = try await LocalDataStore.shared.request("/quests/\(quest.id)/progress", method: "POST", body: ["amount": 1])
+            case .complete: result = try await LocalDataStore.shared.request("/quests/\(quest.id)/complete", method: "POST")
             }
             await load()
+            if result.completed && result.expGained > 0 {
+                rewardReceipt = RewardReceipt(title: quest.title, exp: result.expGained, leveledUp: result.leveledUp)
+            }
         } catch { errorMessage = error.localizedDescription }
+    }
+}
+
+private struct QuestRewardView: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let exp: Int
+    let leveledUp: Bool
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 24) {
+                Image(systemName: leveledUp ? "sparkles" : "checkmark.seal.fill")
+                    .font(.system(size: 54, weight: .semibold))
+                    .foregroundStyle(leveledUp ? SystemTheme.gold : SystemTheme.cyan)
+                    .accessibilityHidden(true)
+                VStack(spacing: 8) {
+                    Text(leveledUp ? "LEVEL UP" : "QUEST CLEARED")
+                        .font(.caption.bold()).tracking(2).foregroundStyle(SystemTheme.cyan)
+                    Text(title).font(.title2.bold()).multilineTextAlignment(.center)
+                }
+                SystemCard {
+                    HStack {
+                        Label("Player EXP", systemImage: "sparkles")
+                        Spacer()
+                        Text("+\(exp)").font(.title2.bold().monospaced()).foregroundStyle(SystemTheme.gold)
+                    }
+                }
+                if leveledUp {
+                    Text("Your new level and stat points are waiting in Player State.")
+                        .font(.subheadline).foregroundStyle(SystemTheme.muted).multilineTextAlignment(.center)
+                }
+                Button("Continue") { dismiss() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.large)
+            }
+            .padding(24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(SystemBackdrop())
+            .navigationBarTitleDisplayMode(.inline)
+        }
+        .presentationDetents([.medium])
+        .accessibilityElement(children: .contain)
+    }
+}
+
+struct QuestRewardPreviewScreen: View {
+    var body: some View {
+        QuestRewardView(title: "Complete the morning training", exp: 120, leveledUp: true)
+            .preferredColorScheme(.dark)
     }
 }
 
