@@ -3,23 +3,23 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-private struct CreateSkillPayload: Encodable {
+private struct CreateSkillPayload: Codable {
     let name: String
     let description: String?
     let parentId: Int?
     let iconKey: String?
 }
 
-private struct SkillIconPayload: Encodable { let iconKey: String? }
+private struct SkillIconPayload: Codable { let iconKey: String? }
 
-private struct PracticeAttachmentPayload: Encodable {
+private struct PracticeAttachmentPayload: Codable {
     let kind: String
     let filename: String
     let contentType: String
     let dataBase64: String
 }
 
-private struct PracticePayload: Encodable {
+private struct PracticePayload: Codable {
     let minutes: Int
     let note: String?
     let attachments: [PracticeAttachmentPayload]
@@ -82,7 +82,7 @@ struct SkillsView: View {
         isLoading = roots.isEmpty
         defer { isLoading = false }
         do {
-            roots = try await APIClient.shared.request("/skills")
+            roots = try await LocalDataStore.shared.request("/skills")
             errorMessage = nil
         } catch { errorMessage = error.localizedDescription }
     }
@@ -301,13 +301,13 @@ struct SkillDetailView: View {
         }
     }
     private func load() async {
-        async let loadedDetail: SkillDetail? = try? APIClient.shared.request("/skills/\(skillID)")
-        async let loadedEntries: [PracticeEntry]? = try? APIClient.shared.request("/skills/\(skillID)/practice")
+        async let loadedDetail: SkillDetail? = try? LocalDataStore.shared.request("/skills/\(skillID)")
+        async let loadedEntries: [PracticeEntry]? = try? LocalDataStore.shared.request("/skills/\(skillID)/practice")
         detail = await loadedDetail
         practiceEntries = await loadedEntries ?? []
     }
     private func setIcon(_ key: String?) async {
-        let _: SkillSummary? = try? await APIClient.shared.request("/skills/\(skillID)", method: "PATCH", body: SkillIconPayload(iconKey: key))
+        let _: SkillSummary? = try? await LocalDataStore.shared.request("/skills/\(skillID)", method: "PATCH", body: SkillIconPayload(iconKey: key))
         showingIconPicker = false
         await load()
     }
@@ -362,7 +362,7 @@ struct CreateSkillView: View {
     private func create() async {
         saving = true; defer { saving = false }
         do {
-            let _: SkillSummary = try await APIClient.shared.request("/skills", method: "POST", body: CreateSkillPayload(name: name.trimmingCharacters(in: .whitespacesAndNewlines), description: description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : description, parentId: parent?.id, iconKey: selectedIconKey))
+            let _: SkillSummary = try await LocalDataStore.shared.request("/skills", method: "POST", body: CreateSkillPayload(name: name.trimmingCharacters(in: .whitespacesAndNewlines), description: description.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : description, parentId: parent?.id, iconKey: selectedIconKey))
             onCreated(); dismiss()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -586,7 +586,7 @@ struct LogPracticeView: View {
                 PracticeAttachmentPayload(kind: $0.kind, filename: $0.filename, contentType: $0.contentType, dataBase64: $0.data.base64EncodedString())
             }
         )
-        do { result = try await APIClient.shared.request("/skills/\(skill.id)/practice", method: "POST", body: payload) }
+        do { result = try await LocalDataStore.shared.request("/skills/\(skill.id)/practice", method: "POST", body: payload) }
         catch { errorMessage = error.localizedDescription }
     }
 }

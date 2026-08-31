@@ -38,14 +38,14 @@ struct BoardView: View {
         }
     }
 
-    private func load() async { do { quests = try await APIClient.shared.request("/quests/today"); errorMessage = nil } catch { errorMessage = error.localizedDescription } }
+    private func load() async { do { quests = try await LocalDataStore.shared.request("/quests/today"); errorMessage = nil } catch { errorMessage = error.localizedDescription } }
     private func perform(_ action: QuestCard.Action, quest: Quest) async {
         busyID = quest.id; defer { busyID = nil }
         do {
             let _: QuestAction
             switch action {
-            case .add: _ = try await APIClient.shared.request("/quests/\(quest.id)/progress", method: "POST", body: ["amount": 1]) as QuestAction
-            case .complete: _ = try await APIClient.shared.request("/quests/\(quest.id)/complete", method: "POST") as QuestAction
+            case .add: _ = try await LocalDataStore.shared.request("/quests/\(quest.id)/progress", method: "POST", body: ["amount": 1]) as QuestAction
+            case .complete: _ = try await LocalDataStore.shared.request("/quests/\(quest.id)/complete", method: "POST") as QuestAction
             }
             await load()
         } catch { errorMessage = error.localizedDescription }
@@ -108,5 +108,5 @@ struct QuestLibraryView: View {
             }
         }
     }
-    private func load() async { quests = (try? await APIClient.shared.request("/quests")) ?? [] }
+    private func load() async { quests = (try? await LocalDataStore.shared.request("/quests")) ?? [] }
 }

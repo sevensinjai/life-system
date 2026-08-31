@@ -16,7 +16,6 @@
   <key>LSRequiresIPhoneOS</key><true/>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
   <key>NSMicrophoneUsageDescription</key><string>Attach short audio reflections to your skill practice journal.</string>
-  <key>SYSTEM_API_URL</key><string>http://127.0.0.1:8000</string>
   <key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict>
   <key>UILaunchScreen</key><dict/>
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>

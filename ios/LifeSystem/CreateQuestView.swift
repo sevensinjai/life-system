@@ -33,14 +33,14 @@ private enum RewardStat: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
-private struct QuestSchedulePayload: Encodable {
+private struct QuestSchedulePayload: Codable {
     let kind: String
     let days: [Int]?
     let intervalDays: Int?
     let weekStart: Int?
 }
 
-private struct CreateQuestPayload: Encodable {
+private struct CreateQuestPayload: Codable {
     let title: String
     let description: String?
     let schedule: QuestSchedulePayload
@@ -306,7 +306,7 @@ struct CreateQuestView: View {
         )
 
         do {
-            let quest: Quest = try await APIClient.shared.request("/quests", method: "POST", body: payload)
+            let quest: Quest = try await LocalDataStore.shared.request("/quests", method: "POST", body: payload)
             onCreated(quest)
             dismiss()
         } catch {
@@ -319,7 +319,7 @@ struct CreateQuestView: View {
         skillLoadError = nil
         defer { isLoadingSkills = false }
         do {
-            skillRoots = try await APIClient.shared.request("/skills")
+            skillRoots = try await LocalDataStore.shared.request("/skills")
             if !skillOptions.contains(where: { $0.id == selectedSkillID }) {
                 selectedSkillID = linkedSkill?.id ?? skillOptions.first?.id
             }

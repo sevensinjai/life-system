@@ -1,21 +1,20 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct LifeSystemApp: App {
-    @StateObject private var session = SessionStore()
+    private let persistence = PersistenceController.shared
 
     var body: some Scene {
         WindowGroup {
             RootView()
-                .environmentObject(session)
                 .preferredColorScheme(.dark)
+                .modelContainer(persistence.container)
         }
     }
 }
 
 struct RootView: View {
-    @EnvironmentObject private var session: SessionStore
-
     var body: some View {
         Group {
 #if DEBUG
@@ -45,17 +44,11 @@ struct RootView: View {
                 CreateQuestView(onCreated: { _ in })
             } else if ProcessInfo.processInfo.arguments.contains("-dashboardPreview") {
                 DashboardPreviewScreen()
-            } else if session.isAuthenticated {
-                MainTabView()
             } else {
-                AuthView()
+                MainTabView()
             }
 #else
-            if session.isAuthenticated {
-                MainTabView()
-            } else {
-                AuthView()
-            }
+            MainTabView()
 #endif
         }
         .tint(SystemTheme.cyan)

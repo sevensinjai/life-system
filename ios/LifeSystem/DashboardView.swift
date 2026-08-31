@@ -50,7 +50,7 @@ struct DashboardView: View {
     private func enterSystem() async {
         if !hasReset {
             hasReset = true
-            let _: DailyReset? = try? await APIClient.shared.request(
+            let _: DailyReset? = try? await LocalDataStore.shared.request(
                 "/system/daily-reset",
                 method: "POST"
             )
@@ -61,10 +61,10 @@ struct DashboardView: View {
 
     private func load() async {
         do {
-            async let playerRequest: PlayerStatus = APIClient.shared.request("/players/me")
-            async let questRequest: [Quest] = APIClient.shared.request("/quests/today")
-            async let quoteRequest: DailyQuote? = try? APIClient.shared.request("/quotes/today")
-            async let eventRequest: [SystemEvent]? = try? APIClient.shared.request("/system/events?limit=1")
+            async let playerRequest: PlayerStatus = LocalDataStore.shared.request("/players/me")
+            async let questRequest: [Quest] = LocalDataStore.shared.request("/quests/today")
+            async let quoteRequest: DailyQuote? = try? LocalDataStore.shared.request("/quotes/today")
+            async let eventRequest: [SystemEvent]? = try? LocalDataStore.shared.request("/system/events?limit=1")
 
             let player = try await playerRequest
             let quests = try await questRequest

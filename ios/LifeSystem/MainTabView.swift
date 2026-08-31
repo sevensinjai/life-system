@@ -34,7 +34,6 @@ struct MainTabView: View {
 }
 
 struct SettingsView: View {
-    @EnvironmentObject private var session: SessionStore
     var body: some View {
         NavigationStack {
             List {
@@ -42,7 +41,13 @@ struct SettingsView: View {
                     NavigationLink { QuestLibraryView() } label: { Label("All quests", systemImage: "scroll") }
                     NavigationLink { SkillIconCreditsView() } label: { Label("Icon credits", systemImage: "seal") }
                 }
-                Section("Connection") { LabeledContent("API", value: "127.0.0.1:8000") }
+                Section("Data") {
+                    LabeledContent("Storage", value: "On this device")
+                    LabeledContent("Sync", value: "iCloud")
+                    Text("Changes are saved immediately and sync automatically through your private iCloud account.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
                 Section("Lock Screen quote") {
                     VStack(alignment: .leading, spacing: 8) {
                         Label("Add the Daily System Quote widget", systemImage: "lock.rectangle")
@@ -56,10 +61,6 @@ struct SettingsView: View {
                 Section {
                     Button("Refresh Lock Screen quote") {
                         Task { await QuoteWidgetSync.refresh() }
-                    }
-                    Button("Sign out", role: .destructive) {
-                        QuoteWidgetSync.clear()
-                        session.signOut()
                     }
                 }
             }.navigationTitle("More")

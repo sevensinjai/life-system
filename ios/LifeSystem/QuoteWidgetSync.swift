@@ -15,9 +15,8 @@ enum QuoteWidgetSync {
 
     @MainActor
     static func refresh() async {
-        guard KeychainToken.load() != nil else { return }
         do {
-            let response: DailyQuote = try await APIClient.shared.request("/quotes/today")
+            let response: DailyQuote = try await LocalDataStore.shared.request("/quotes/today")
             guard let quote = response.quote,
                   let refreshAfter = ISO8601DateFormatter().date(from: response.refreshAfter),
                   let defaults = UserDefaults(suiteName: suite),

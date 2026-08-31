@@ -1,14 +1,12 @@
 import Foundation
 
-struct TokenResponse: Decodable { let accessToken: String }
-
 struct QuoteSummary: Codable {
     let id: Int
     let text: String
     let author: String?
 }
 
-struct SkillSummary: Decodable, Identifiable {
+struct SkillSummary: Codable, Identifiable {
     let id: Int
     let parentId: Int?
     let name: String
@@ -24,7 +22,7 @@ struct SkillSummary: Decodable, Identifiable {
     let createdAt: String
 }
 
-struct SkillNode: Decodable, Identifiable {
+struct SkillNode: Codable, Identifiable {
     let id: Int
     let parentId: Int?
     let name: String
@@ -45,7 +43,7 @@ struct SkillNode: Decodable, Identifiable {
     }
 }
 
-struct SkillDetail: Decodable, Identifiable {
+struct SkillDetail: Codable, Identifiable {
     let id: Int
     let parentId: Int?
     let name: String
@@ -67,7 +65,7 @@ struct SkillDetail: Decodable, Identifiable {
     }
 }
 
-struct SkillAward: Decodable, Identifiable {
+struct SkillAward: Codable, Identifiable {
     let skillId: Int
     let name: String
     let expGained: Int
@@ -78,13 +76,13 @@ struct SkillAward: Decodable, Identifiable {
     var id: Int { skillId }
 }
 
-struct PracticeResult: Decodable {
+struct PracticeResult: Codable {
     let skill: SkillSummary
     let awards: [SkillAward]
     let entry: PracticeEntry
 }
 
-struct PracticeAttachment: Decodable, Identifiable {
+struct PracticeAttachment: Codable, Identifiable {
     let id: Int
     let kind: String
     let filename: String
@@ -92,7 +90,7 @@ struct PracticeAttachment: Decodable, Identifiable {
     let byteCount: Int
 }
 
-struct PracticeEntry: Decodable, Identifiable {
+struct PracticeEntry: Codable, Identifiable {
     let id: Int
     let skillId: Int
     let skillName: String
@@ -102,14 +100,14 @@ struct PracticeEntry: Decodable, Identifiable {
     let attachments: [PracticeAttachment]
 }
 
-struct DailyQuote: Decodable {
+struct DailyQuote: Codable {
     let localDate: String
     let quote: QuoteSummary?
     let poolSize: Int
     let refreshAfter: String
 }
 
-struct PlayerStatus: Decodable {
+struct PlayerStatus: Codable {
     let id: Int
     let name: String
     let level: Int
@@ -122,7 +120,7 @@ struct PlayerStatus: Decodable {
     let timezone: String
 }
 
-struct StatBlock: Decodable {
+struct StatBlock: Codable {
     let strength, agility, vitality, intelligence, perception: Int
 
     var rows: [(String, Int, String)] {
@@ -134,7 +132,7 @@ struct StatBlock: Decodable {
     }
 }
 
-struct Quest: Decodable, Identifiable {
+struct Quest: Codable, Identifiable {
     let id: Int
     let title: String
     let description: String?
@@ -150,9 +148,9 @@ struct Quest: Decodable, Identifiable {
     let nextDueDate: String?
 }
 
-struct QuestSchedule: Decodable { let label: String }
+struct QuestSchedule: Codable { let label: String }
 
-struct QuestInstance: Decodable {
+struct QuestInstance: Codable {
     let id: Int
     let progress: Int
     let targetCount: Int
@@ -160,25 +158,20 @@ struct QuestInstance: Decodable {
     let periodEnd: String?
 }
 
-struct QuestAction: Decodable {
+struct QuestAction: Codable {
     let completed: Bool
     let expGained: Int
     let leveledUp: Bool
 }
 
-struct DailyReset: Decodable {
+struct DailyReset: Codable {
     let resetDate: String
     let failedCount, spawnedCount, totalExpLost: Int
 }
 
-struct SystemEvent: Decodable, Identifiable {
+struct SystemEvent: Codable, Identifiable {
     let id: Int
     let eventType: String
     let message: String
     let createdAt: String
-}
-
-struct APIErrorEnvelope: Decodable {
-    struct Detail: Decodable { let message: String }
-    let error: Detail
 }

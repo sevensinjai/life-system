@@ -19,5 +19,5 @@ struct SystemLogView: View {
              .task { await load() }.refreshable { await load() }
         }
     }
-    private func load() async { events = (try? await APIClient.shared.request("/system/events?limit=50")) ?? [] }
+    private func load() async { events = (try? await LocalDataStore.shared.request("/system/events?limit=50")) ?? [] }
 }

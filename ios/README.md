@@ -1,12 +1,12 @@
 # System for iOS
 
-Native SwiftUI client for the existing FastAPI backend. It requires iOS 17 or later.
+Native, offline-first SwiftUI app. It requires iOS 17 or later.
 
-1. Start the API from the repository root: `.venv/bin/uvicorn app.main:app --reload`
-2. Open `LifeSystem.xcodeproj` in Xcode.
-3. Select an iPhone simulator and press Run.
+1. Open `LifeSystem.xcodeproj` in Xcode.
+2. Select the LifeSystem target and configure the `iCloud.uk.tomchan.LifeSystem` CloudKit container for your Apple Developer team.
+3. Select an iPhone simulator or device and press Run.
 
-The simulator reaches the Mac API at `http://127.0.0.1:8000`. For a physical device, change `SYSTEM_API_URL` in `LifeSystem/Info.plist` to the Mac's LAN address and ensure both devices are on the same network.
+App data is written immediately to SwiftData on the device. When the user is signed into iCloud, SwiftData mirrors the private store through CloudKit. The app remains usable offline and falls back to local-only storage when iCloud is unavailable.
 
 ## Lock Screen quote widget
 
@@ -16,4 +16,4 @@ The `QuoteWidget` extension supports rectangular and inline Lock Screen widgets,
 2. Select the Lock Screen, then tap the widget area.
 3. Find **System Quote** and add the desired layout.
 
-The signed-in app fetches `/quotes/today`, stores the result in its App Group, and asks WidgetKit to reload. It refreshes on app entry and from **More → Refresh Lock Screen quote**. Xcode must configure the `group.uk.tomchan.LifeSystem` App Group for both the app and widget targets before running on a physical device.
+The app copies today's locally stored quote into its App Group and asks WidgetKit to reload. It refreshes on app entry and from **More → Refresh Lock Screen quote**. Xcode must configure the `group.uk.tomchan.LifeSystem` App Group for both the app and widget targets before running on a physical device.

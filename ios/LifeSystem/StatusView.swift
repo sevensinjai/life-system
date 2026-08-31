@@ -18,8 +18,8 @@ struct StatusView: View {
 
     private func load() async {
         do {
-            async let playerRequest: PlayerStatus = APIClient.shared.request("/players/me")
-            async let skillsRequest: [SkillNode] = APIClient.shared.request("/skills")
+            async let playerRequest: PlayerStatus = LocalDataStore.shared.request("/players/me")
+            async let skillsRequest: [SkillNode] = LocalDataStore.shared.request("/skills")
             player = try await playerRequest
             skills = try await skillsRequest
             errorMessage = nil

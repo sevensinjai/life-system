@@ -167,12 +167,6 @@ struct HomeScreenQuoteWidgetSimulationView: View {
     HomeScreenQuoteWidgetSimulationView()
 }
 
-#Preview("Authentication", traits: .portrait) {
-    AuthView()
-        .environmentObject(SessionStore())
-        .preferredColorScheme(.dark)
-}
-
 #Preview("Quest card", traits: .sizeThatFitsLayout) {
     QuestCard(quest: .preview, busy: false) { _ in }
         .padding()
