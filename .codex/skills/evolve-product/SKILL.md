@@ -39,13 +39,15 @@ Prefer a coherent vertical improvement that a player can experience end to end. 
 ## Upgrade the product
 
 - Translate the relevant feedback into concrete behavior and acceptance criteria before editing.
-- Inspect the current UI, models, persistence behavior, feature maps, and tests that own that behavior.
+- Read [the feature-map index](../../../docs/feature-maps/README.md) and every feature map relevant to the selected improvement before editing. Use the maps to locate the owning UI, models, persistence paths, contracts, and tests, then confirm them against the implementation.
 - Preserve the app's Souls/manhwa identity while making consequences and controls understandable in plain language.
 - Keep player EXP, skill EXP, quest state, journal data, events, widgets, and sync-visible state consistent whenever an action affects more than one of them.
 - Design frequent daily actions for minimal navigation and reversible recovery where accidental input is plausible.
 - Handle empty, populated, loading, failure, completion, and relaunch states as part of the feature rather than as follow-up polish.
 - Maintain accessibility at the same time as the primary layout, including Dynamic Type, VoiceOver labels and order, contrast, touch targets, Reduce Motion, and non-color state cues where relevant.
-- Update the relevant feature map and append to the product-development history when behavior, contracts, priorities, or finding status changes. Mark findings resolved only in a new dated entry and only after runtime verification.
+- Update every affected feature map as part of the same change. Keep documented behavior, source ownership, data flow, persistence and sync semantics, edge cases, and verification coverage aligned with the implementation; add a new map or update the index when no existing map owns the changed behavior.
+- Do not finish an invocation with stale feature maps. Before reporting completion, inspect the implementation and documentation diffs together and explicitly confirm that all affected maps were updated. If runtime verification disproves a documented claim, correct the map even when no production code change is needed.
+- Append to the product-development history when behavior, contracts, priorities, or finding status changes. Mark findings resolved only in a new dated entry and only after runtime verification.
 
 For changes under `ios/`, read [the harness skill](../harness/SKILL.md) completely and follow it. Build and exercise the real app in Simulator; a compile alone is not sufficient for navigation, persistence, or visual work.
 
@@ -60,5 +62,6 @@ Finish by reporting:
 - The player-facing outcome
 - Which feedback finding or acceptance scenario was addressed
 - What was verified and on which device/runtime
+- Which feature maps were updated, or why none were affected
 - Evidence paths and any remaining limitations
 - The dated history entry appended to the feedback document
