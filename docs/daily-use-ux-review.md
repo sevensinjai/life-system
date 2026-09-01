@@ -569,3 +569,20 @@ These inconsistencies make QA and product expectations unreliable. The current a
 The app already has the emotional shell of a product people could care about. The populated states successfully answer, “What might my life look like if progress felt visible?” The next work should focus less on adding more systems and more on making the existing loop immediate, trustworthy, accessible, and rewarding every single day.
 
 If the first five minutes teach the loop, the next five seconds make logging effortless, and every reward is durably true, Life System can feel substantially more compelling than either a standard habit tracker or a decorative RPG dashboard.
+
+## Product-development history — 1 September 2026
+
+### Dynamic Type Dashboard vertical slice
+
+Carried-forward finding: **P0 — Fix Dynamic Type before release**.
+
+The populated Dashboard now adopts accessibility-specific layouts instead of forcing its normal horizontal composition through AX sizes. Player status and mission summaries stack, mission titles wrap, attributes become a two-column grid with full names, and the latest transmission stacks vertically. Decorative welcome and eyebrow typography caps at AX2 while functional values and controls continue scaling through AX5. The affected status, mission, attribute, and activity controls also gained combined VoiceOver descriptions and navigation hints.
+
+Verification on the iPhone 17 Pro Simulator running iOS 26.5:
+
+- The Debug app build completed with `** BUILD SUCCEEDED **`.
+- The deterministic populated Dashboard was launched at Large and AX5 using `-dashboardPreview`.
+- Large and AX5 screenshots were inspected for horizontal clipping, card-boundary overflow, unreadable mission titles, and lost controls. The adaptive layouts remained within the viewport width; the AX5 screen remains vertically scrollable as expected.
+- Evidence: `ios/Screenshots/dashboard-dynamic-type-large.png` and `ios/Screenshots/dashboard-dynamic-type-ax5.png`.
+
+This is a verified partial resolution, not closure of the original P0. Quest creation and the remaining core screens still require the same Large/XXXL/AX5 treatment and VoiceOver journey verification before the release blocker can be marked resolved.

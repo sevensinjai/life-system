@@ -84,6 +84,8 @@ struct DashboardView: View {
 }
 
 private struct DashboardContent: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     let snapshot: DashboardSnapshot
     let openBoard: () -> Void
     let openSystem: () -> Void
@@ -94,6 +96,10 @@ private struct DashboardContent: View {
         let completed = instances.reduce(0) { $0 + min($1.progress, $1.targetCount) }
         let target = instances.reduce(0) { $0 + $1.targetCount }
         return target == 0 ? 0 : Double(completed) / Double(target)
+    }
+
+    private var usesAccessibilityLayout: Bool {
+        dynamicTypeSize.isAccessibilitySize
     }
 
     var body: some View {
@@ -115,7 +121,11 @@ private struct DashboardContent: View {
     }
 
     private var welcome: some View {
-        HStack(alignment: .top) {
+        let layout = usesAccessibilityLayout
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .top))
+
+        return layout {
             VStack(alignment: .leading, spacing: 4) {
                 Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()))
                     .font(.caption.weight(.semibold))
@@ -127,7 +137,7 @@ private struct DashboardContent: View {
                     .font(.system(.largeTitle, design: .serif, weight: .semibold))
                     .foregroundStyle(SystemTheme.parchment)
             }
-            Spacer()
+            if !usesAccessibilityLayout { Spacer() }
             Image(systemName: "flame.fill")
                 .font(.title2)
                 .foregroundStyle(SystemTheme.ember)
@@ -136,30 +146,33 @@ private struct DashboardContent: View {
                 .background(Color.black.opacity(0.35))
                 .overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.3)) }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .dynamicTypeSize(...DynamicTypeSize.accessibility2)
     }
 
     private var levelCard: some View {
         NavigationLink { StatusView() } label: {
             SystemCard {
                 VStack(spacing: 13) {
-                    HStack {
+                    adaptiveRow(alignment: .leading) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("PLAYER STATUS")
                                 .font(.caption2.bold()).tracking(1.8)
                                 .foregroundStyle(SystemTheme.cyan)
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                             Text("Level \(snapshot.player.level)")
                                 .font(.system(.title2, design: .serif, weight: .semibold))
                                 .foregroundStyle(SystemTheme.parchment)
                         }
-                        Spacer()
+                        if !usesAccessibilityLayout { Spacer() }
                         Text("\(Int(snapshot.player.expProgress * 100))%")
                             .font(.title3.bold().monospaced())
                     }
                     ProgressView(value: snapshot.player.expProgress)
                         .tint(SystemTheme.cyan)
-                    HStack {
+                    adaptiveRow(alignment: .leading) {
                         Text("\(snapshot.player.exp) / \(snapshot.player.expToNextLevel) EXP")
-                        Spacer()
+                        if !usesAccessibilityLayout { Spacer() }
                         if snapshot.player.statPoints > 0 {
                             Label("\(snapshot.player.statPoints) points", systemImage: "sparkles")
                                 .foregroundStyle(SystemTheme.gold)
@@ -173,6 +186,9 @@ private struct DashboardContent: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Player status, level \(snapshot.player.level), \(snapshot.player.exp) of \(snapshot.player.expToNextLevel) experience, \(snapshot.player.statPoints) unspent stat points")
+        .accessibilityHint("Opens Player State")
     }
 
     private var quoteCard: some View {
@@ -181,6 +197,7 @@ private struct DashboardContent: View {
                 Label("TODAY'S WORDS", systemImage: "quote.opening")
                     .font(.caption2.bold()).tracking(1.5)
                     .foregroundStyle(SystemTheme.cyan)
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                 if let quote = snapshot.quote?.quote {
                     Text("“\(quote.text)”")
                         .font(.system(.title3, design: .serif, weight: .medium))
@@ -208,41 +225,55 @@ private struct DashboardContent: View {
         Button(action: openBoard) {
             SystemCard {
                 VStack(spacing: 13) {
-                    HStack {
+                    adaptiveRow(alignment: .leading) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("TODAY'S MISSIONS")
                                 .font(.caption2.bold()).tracking(1.5)
                                 .foregroundStyle(SystemTheme.cyan)
+                                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
                             Text(snapshot.quests.isEmpty ? "Board clear" : "\(snapshot.quests.count) active")
                                 .font(.title3.bold())
                         }
-                        Spacer()
+                        if !usesAccessibilityLayout { Spacer() }
                         Text("\(Int(progress * 100))%")
                             .font(.headline.monospaced())
                     }
                     ProgressView(value: progress).tint(SystemTheme.blue)
                     ForEach(snapshot.quests.prefix(3)) { quest in
-                        HStack(spacing: 10) {
+                        let instance = quest.currentInstance
+                        let unit = quest.unit ?? "items"
+                        let questLayout = usesAccessibilityLayout
+                            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                            : AnyLayout(HStackLayout(spacing: 10))
+                        questLayout {
                             Text(quest.difficulty)
                                 .font(.caption.bold().monospaced())
                                 .foregroundStyle(SystemTheme.cyan)
                                 .frame(width: 26, height: 26)
                                 .background(SystemTheme.surfaceRaised)
                                 .overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.25)) }
-                            Text(quest.title).lineLimit(1)
-                            Spacer()
-                            if let instance = quest.currentInstance {
+                            Text(quest.title)
+                                .lineLimit(usesAccessibilityLayout ? nil : 1)
+                            if !usesAccessibilityLayout { Spacer() }
+                            if let instance {
                                 Text("\(instance.progress)/\(instance.targetCount)")
                                     .font(.caption.monospaced())
                                     .foregroundStyle(SystemTheme.muted)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("\(quest.title), \(quest.difficulty) rank, \(instance?.progress ?? 0) of \(instance?.targetCount ?? quest.targetCount) \(unit)")
                     }
-                    HStack { Spacer(); Text("Open quest board  ›").font(.caption.weight(.semibold)).foregroundStyle(SystemTheme.cyan) }
+                    Text("Open quest board  ›")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(SystemTheme.cyan)
+                        .frame(maxWidth: .infinity, alignment: usesAccessibilityLayout ? .leading : .trailing)
                 }
             }
         }
         .buttonStyle(.plain)
+        .accessibilityHint("Opens today's quest board")
     }
 
     private var attributes: some View {
@@ -250,39 +281,75 @@ private struct DashboardContent: View {
             Text("ATTRIBUTES")
                 .font(.caption2.bold()).tracking(1.5)
                 .foregroundStyle(SystemTheme.muted)
-            HStack(spacing: 7) {
-                ForEach(snapshot.player.stats.rows, id: \.0) { stat in
-                    VStack(spacing: 5) {
-                        Image(systemName: stat.2).font(.caption).foregroundStyle(SystemTheme.cyan)
-                        Text("\(stat.1)").font(.subheadline.bold().monospaced())
-                        Text(String(stat.0.prefix(3)).uppercased()).font(.system(size: 8, weight: .bold)).foregroundStyle(SystemTheme.muted)
+                .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+            if usesAccessibilityLayout {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 9) {
+                    ForEach(snapshot.player.stats.rows, id: \.0) { stat in
+                        attributeCell(stat)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(SystemTheme.surface)
-                    .overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.2)) }
+                }
+            } else {
+                HStack(spacing: 7) {
+                    ForEach(snapshot.player.stats.rows, id: \.0) { stat in
+                        attributeCell(stat)
+                    }
                 }
             }
         }
     }
 
+    private func attributeCell(_ stat: (String, Int, String)) -> some View {
+        VStack(spacing: 5) {
+            Image(systemName: stat.2).font(.caption).foregroundStyle(SystemTheme.cyan)
+            Text("\(stat.1)").font(.subheadline.bold().monospaced())
+            Text(usesAccessibilityLayout ? stat.0 : String(stat.0.prefix(3)).uppercased())
+                .font(usesAccessibilityLayout ? .caption.bold() : .system(size: 8, weight: .bold))
+                .foregroundStyle(SystemTheme.muted)
+        }
+        .frame(maxWidth: .infinity, minHeight: 58)
+        .padding(.vertical, 10)
+        .background(SystemTheme.surface)
+        .overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.2)) }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(stat.0), \(stat.1)")
+    }
+
     @ViewBuilder private var transmission: some View {
         if let event = snapshot.latestEvent {
             Button(action: openSystem) {
-                HStack(spacing: 12) {
+                let layout = usesAccessibilityLayout
+                    ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+                    : AnyLayout(HStackLayout(spacing: 12))
+                layout {
                     Image(systemName: "wave.3.right").foregroundStyle(SystemTheme.cyan)
                     VStack(alignment: .leading, spacing: 3) {
                         Text("LATEST TRANSMISSION").font(.caption2.bold()).tracking(1.3).foregroundStyle(SystemTheme.cyan)
-                        Text(event.message).font(.subheadline).lineLimit(2)
+                            .dynamicTypeSize(...DynamicTypeSize.accessibility2)
+                        Text(event.message)
+                            .font(.subheadline)
+                            .lineLimit(usesAccessibilityLayout ? nil : 2)
                     }
-                    Spacer(); Image(systemName: "chevron.right").font(.caption).foregroundStyle(SystemTheme.muted)
+                    if !usesAccessibilityLayout { Spacer() }
+                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(SystemTheme.muted)
                 }
                 .padding(14)
                 .background(SystemTheme.surface)
                 .overlay { Rectangle().stroke(SystemTheme.gold.opacity(0.24)) }
             }
             .buttonStyle(.plain)
+            .accessibilityHint("Opens activity history")
         }
+    }
+
+    private func adaptiveRow<Content: View>(
+        alignment: HorizontalAlignment,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        let layout = usesAccessibilityLayout
+            ? AnyLayout(VStackLayout(alignment: alignment, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .center))
+        return layout(content)
+            .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -319,4 +386,9 @@ private enum DashboardFixtures {
 
 #Preview("Dashboard") {
     DashboardPreviewScreen()
+}
+
+#Preview("Dashboard AX5") {
+    DashboardPreviewScreen()
+        .environment(\.dynamicTypeSize, .accessibility5)
 }

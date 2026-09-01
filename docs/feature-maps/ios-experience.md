@@ -11,6 +11,13 @@ The SwiftUI client under `ios/LifeSystem` is a native, offline-first game-like c
 - `StatusView.swift` provides the richer Player State treatment. It displays player identity, canonical stats, EXP, skill count, and skill mastery from live `/players/me` plus `/skills` data.
 - The extended “Hundred Facets” modal groups 100 generated human traits into Physical, Cognitive, Emotional, Social, Creative, Practical, Discipline, Perception, Resilience, and Character. Scores are derived presentation data, not backend state.
 
+## Dashboard accessibility
+
+- `DashboardView.swift` switches horizontal status, mission, attribute, and transmission layouts to stacked or two-column variants whenever Dynamic Type enters an accessibility category.
+- Decorative welcome typography and card eyebrow labels cap at AX2 so they retain the Souls-style hierarchy without crowding functional values and controls; functional content continues to scale through AX5.
+- Mission titles wrap at accessibility sizes, attribute abbreviations expand to full names, and status, mission, attribute, and activity links expose combined VoiceOver labels or navigation hints.
+- Deterministic `-dashboardPreview` runtime evidence is maintained at Large and AX5 under `ios/Screenshots/dashboard-dynamic-type-*.png`.
+
 ## Skill sigils
 
 - `SkillIcons.xcassets` contains 150 curated template-vector SVGs from Game-icons.net, 15 in each of ten categories.
@@ -46,4 +53,5 @@ The SwiftUI client under `ios/LifeSystem` is a native, offline-first game-like c
 
 - Follow `.codex/skills/harness/SKILL.md` for Xcode build, Simulator launch, and screenshot requirements.
 - Stable launch arguments currently cover dashboard, skills, player state, the extended attributes list, icon picker, practice journal/media/recording, routine creation, quest reward receipt, durable progression proof, and Lock Screen simulation.
+- The Dashboard preview also has normal and AX5 SwiftUI preview variants; Simulator screenshots remain the full-device acceptance artifacts.
 - Useful acceptance artifacts live under `ios/Screenshots/`; screenshots are evidence, not runtime resources.
