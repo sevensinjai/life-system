@@ -38,10 +38,11 @@ Contracts: `app/schemas/quest.py`; routes: `app/routers/quests.py`.
 ## Clients and gaps
 
 - Web: board, authoring/edit sheet, archive/restore, progress, and completion under `web/src/features/quests`.
-- iOS: `QuestViews.swift` provides board progress/completion, a completion reward receipt, and the quest library. `CreateQuestView.swift` authors one-time, daily, selected-weekday, interval, and weekly quests with target, rank, practice-minute/EXP reward, and optional stat reward. Starting the form from a skill detail pre-links that skill. The offline-first store applies player EXP, level/stat-point changes, direct stat rewards, linked-skill roll-up, event history, and Today removal atomically and rejects duplicate payouts from an already completed instance. General skill selection, editing, archive/restore, custom progress amounts, and pace conversion are not implemented.
+- iOS: `QuestViews.swift` provides board progress/completion, a completion reward receipt, and the quest library. `CreateQuestView.swift` authors one-time, daily, selected-weekday, interval, and weekly quests with target, rank, practice-minute/EXP reward, and optional stat reward. Starting the form from a skill detail pre-links that skill. The form caps its dense content at AX2 when the system uses a larger accessibility category, switches weekday selection to a two-column full-name grid at accessibility sizes, preserves 44-point day targets, wraps explanatory and review copy, and combines the review as a plain-language VoiceOver summary. The offline-first store applies player EXP, level/stat-point changes, direct stat rewards, linked-skill roll-up, event history, and Today removal atomically and rejects duplicate payouts from an already completed instance. General skill selection, editing, archive/restore, custom progress amounts, and pace conversion are not implemented.
 
 ## Verification
 
 - Primary tests: `tests/test_quests.py`, `tests/test_quest_authoring.py`, `tests/test_schedule_lifecycle.py`, `tests/test_scheduling.py`.
 - Integrated behavior also appears in leveling, skills, daily reset, and system log tests.
 - Verify both action response state and downstream player/skill/event state.
+- For quest-authoring layout changes, launch `-createQuestPreview` at Large and AX5; add `-createQuestWeekdaysPreview` to inspect the accessibility weekday grid.

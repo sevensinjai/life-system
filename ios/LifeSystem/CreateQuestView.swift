@@ -55,6 +55,7 @@ private struct CreateQuestPayload: Codable {
 
 struct CreateQuestView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     let linkedSkill: SkillSummary?
     let onCreated: (Quest) -> Void
 
@@ -65,6 +66,11 @@ struct CreateQuestView: View {
     ) {
         self.linkedSkill = linkedSkill
         self.onCreated = onCreated
+        _kind = State(
+            initialValue: ProcessInfo.processInfo.arguments.contains("-createQuestWeekdaysPreview")
+                ? .weekdays
+                : .daily
+        )
         _selectedSkillID = State(initialValue: linkedSkill?.id)
         _skillRoots = State(initialValue: initialSkillRoots)
     }
@@ -100,6 +106,8 @@ struct CreateQuestView: View {
         (linkedSkill == nil || selectedSkillID != nil) &&
         (kind != .weekdays || !weekdays.isEmpty) && !isSaving
     }
+
+    private var usesAccessibilityLayout: Bool { dynamicTypeSize.isAccessibilitySize }
 
     private var skillOptions: [SkillSummary] {
         func flatten(_ nodes: [SkillNode]) -> [SkillSummary] {
@@ -169,7 +177,10 @@ struct CreateQuestView: View {
                             Text(kind.label).tag(kind)
                         }
                     }
-                    Text(kind.detail).font(.caption).foregroundStyle(.secondary)
+                    Text(kind.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     if kind == .weekdays {
                         weekdayPicker
@@ -216,6 +227,7 @@ struct CreateQuestView: View {
                     }
                 } header: { Text("Review") }
             }
+            .dynamicTypeSize(.large ... .accessibility2)
             .navigationTitle(linkedSkill == nil ? "New Quest" : "New Routine")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -239,19 +251,25 @@ struct CreateQuestView: View {
     }
 
     private var weekdayPicker: some View {
-        HStack(spacing: 5) {
+        let columns = Array(
+            repeating: GridItem(.flexible(), spacing: 8),
+            count: usesAccessibilityLayout ? 2 : 7
+        )
+
+        return LazyVGrid(columns: columns, alignment: .leading, spacing: 8) {
             ForEach(orderedMondayFirstDays, id: \.0) { index, day in
                 Button {
                     if weekdays.contains(index) { weekdays.remove(index) }
                     else { weekdays.insert(index) }
                 } label: {
-                    Text(String(day.prefix(1)))
+                    Text(usesAccessibilityLayout ? day : String(day.prefix(1)))
                         .font(.caption.bold())
                         .frame(maxWidth: .infinity)
-                        .frame(height: 34)
+                        .frame(minHeight: 44)
+                        .padding(.horizontal, usesAccessibilityLayout ? 6 : 0)
                         .background(weekdays.contains(index) ? SystemTheme.cyan : Color.secondary.opacity(0.15))
                         .foregroundStyle(weekdays.contains(index) ? SystemTheme.background : .primary)
-                        .clipShape(Circle())
+                        .clipShape(usesAccessibilityLayout ? AnyShape(Capsule()) : AnyShape(Circle()))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(day)
@@ -263,9 +281,13 @@ struct CreateQuestView: View {
 
     private var summary: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(rank.rawValue).font(.headline.monospaced()).foregroundStyle(SystemTheme.cyan)
-                Text(title.isEmpty ? "Untitled quest" : title).font(.headline)
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline) {
+                    summaryHeading
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    summaryHeading
+                }
             }
             Label(kind.label, systemImage: "calendar")
             Label("\(target) \(unit.isEmpty ? "unit\(target == 1 ? "" : "s")" : unit)", systemImage: "scope")
@@ -280,6 +302,30 @@ struct CreateQuestView: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .padding(.vertical, 4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(summaryAccessibilityLabel)
+    }
+
+    @ViewBuilder
+    private var summaryHeading: some View {
+        Text(rank.rawValue)
+            .font(.headline.monospaced())
+            .foregroundStyle(SystemTheme.cyan)
+        Text(title.isEmpty ? "Untitled quest" : title)
+            .font(.headline)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var summaryAccessibilityLabel: String {
+        var parts = [
+            "\(rank.rawValue) rank, \(title.isEmpty ? "Untitled quest" : title)",
+            kind.label,
+            "Target \(target) \(unit.isEmpty ? "units" : unit)",
+            "\(minutes) experience on completion"
+        ]
+        if linkedSkill != nil { parts.append("Trains \(selectedSkillName)") }
+        if givesStatReward { parts.append("Rewards \(rewardAmount) \(rewardStat.rawValue)") }
+        return parts.joined(separator: ", ")
     }
 
     private func create() async {

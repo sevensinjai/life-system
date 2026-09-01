@@ -18,6 +18,13 @@ The SwiftUI client under `ios/LifeSystem` is a native, offline-first game-like c
 - Mission titles wrap at accessibility sizes, attribute abbreviations expand to full names, and status, mission, attribute, and activity links expose combined VoiceOver labels or navigation hints.
 - Deterministic `-dashboardPreview` runtime evidence is maintained at Large and AX5 under `ios/Screenshots/dashboard-dynamic-type-*.png`.
 
+## Quest creation accessibility
+
+- `CreateQuestView.swift` keeps the authoring form within Large through AX2 when the system is set above AX2, preserving accessible scaling without allowing the dense form to collapse into one enormous control per viewport.
+- At accessibility sizes, selected weekdays become a two-column grid of full day names with 44-point minimum targets; the ordinary layout remains a compact seven-day row.
+- Schedule explanations and review titles wrap vertically, the review falls back from a row to a stack when needed, and its reward summary is exposed as one plain-language VoiceOver element.
+- Deterministic `-createQuestPreview` runtime evidence is maintained at Large and AX5 under `ios/Screenshots/quest-creation-dynamic-type-*.png`. Adding `-createQuestWeekdaysPreview` opens the same screen with the adaptive weekday state for focused inspection.
+
 ## Skill sigils
 
 - `SkillIcons.xcassets` contains 150 curated template-vector SVGs from Game-icons.net, 15 in each of ten categories.
@@ -52,6 +59,6 @@ The SwiftUI client under `ios/LifeSystem` is a native, offline-first game-like c
 ## Verification and evidence
 
 - Follow `.codex/skills/harness/SKILL.md` for Xcode build, Simulator launch, and screenshot requirements.
-- Stable launch arguments currently cover dashboard, skills, player state, the extended attributes list, icon picker, practice journal/media/recording, routine creation, quest reward receipt, durable progression proof, and Lock Screen simulation.
+- Stable launch arguments currently cover dashboard, skills, player state, the extended attributes list, icon picker, practice journal/media/recording, quest and routine creation (including the selected-weekday accessibility state), quest reward receipt, durable progression proof, and Lock Screen simulation.
 - The Dashboard preview also has normal and AX5 SwiftUI preview variants; Simulator screenshots remain the full-device acceptance artifacts.
 - Useful acceptance artifacts live under `ios/Screenshots/`; screenshots are evidence, not runtime resources.

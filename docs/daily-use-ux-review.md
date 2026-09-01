@@ -586,3 +586,20 @@ Verification on the iPhone 17 Pro Simulator running iOS 26.5:
 - Evidence: `ios/Screenshots/dashboard-dynamic-type-large.png` and `ios/Screenshots/dashboard-dynamic-type-ax5.png`.
 
 This is a verified partial resolution, not closure of the original P0. Quest creation and the remaining core screens still require the same Large/XXXL/AX5 treatment and VoiceOver journey verification before the release blocker can be marked resolved.
+
+## Product-development history — 1 September 2026 (quest creation accessibility)
+
+### Dynamic Type quest-creation vertical slice
+
+Carried-forward finding: **P0 — Fix Dynamic Type before release**.
+
+Quest and skill-linked routine authoring now remain usable when the system is set to AX5. The dense form supports scaling through AX2 rather than expanding every field and section heading without bound. At accessibility sizes, the selected-weekday control becomes a two-column grid with full day names and 44-point minimum targets instead of forcing seven initials into one row. Schedule explanations and review titles wrap, the review heading can stack, and VoiceOver receives one plain-language summary of the configured quest and rewards.
+
+Verification on the iPhone 17 Pro Simulator running iOS 26.5:
+
+- The Debug app build completed with `** BUILD SUCCEEDED **`.
+- The deterministic quest-creation screen was launched at Large and AX5 using `-createQuestPreview`.
+- Large and AX5 screenshots were inspected for horizontal clipping, card-boundary overflow, readable fields, retained toolbar actions, and scrollable access to later sections. The accessibility weekday state was separately launched with `-createQuestWeekdaysPreview`; it displayed full day labels in two columns without horizontal clipping.
+- Evidence: `ios/Screenshots/quest-creation-dynamic-type-large.png` and `ios/Screenshots/quest-creation-dynamic-type-ax5.png`.
+
+This is another verified partial resolution, not closure of the original P0. The remaining core screens and a complete VoiceOver create → complete → practice journey still need Large/XXXL/AX5 verification before the release blocker can be marked resolved.
