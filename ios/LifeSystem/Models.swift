@@ -166,7 +166,23 @@ struct Quest: Codable, Identifiable {
     }
 }
 
-struct QuestSchedule: Codable { let label: String }
+struct QuestSchedule: Codable {
+    let label: String
+    let kind: String?
+    let days: [Int]?
+    let intervalDays: Int?
+    let anchor: String?
+    let weekStart: Int?
+
+    init(label: String, kind: String? = nil, days: [Int]? = nil, intervalDays: Int? = nil, anchor: String? = nil, weekStart: Int? = nil) {
+        self.label = label
+        self.kind = kind
+        self.days = days
+        self.intervalDays = intervalDays
+        self.anchor = anchor
+        self.weekStart = weekStart
+    }
+}
 
 struct QuestInstance: Codable {
     let id: Int
@@ -174,6 +190,16 @@ struct QuestInstance: Codable {
     let targetCount: Int
     let status: String
     let periodEnd: String?
+    let periodStart: String?
+
+    init(id: Int, progress: Int, targetCount: Int, status: String, periodEnd: String?, periodStart: String? = nil) {
+        self.id = id
+        self.progress = progress
+        self.targetCount = targetCount
+        self.status = status
+        self.periodEnd = periodEnd
+        self.periodStart = periodStart
+    }
 }
 
 struct QuestAction: Codable {

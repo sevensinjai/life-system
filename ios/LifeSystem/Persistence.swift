@@ -15,10 +15,19 @@ struct LocalSnapshot: Codable {
     var events: [SystemEvent]
     var quote: DailyQuote
     var attachmentData: [Int: Data]?
+    var penalties: [LocalPenalty]?
 
     static var initial: Self {
-        .init(player: .init(id: 1, name: "Player", level: 1, exp: 0, expToNextLevel: 100, expProgress: 0, totalExpEarned: 0, statPoints: 0, stats: .init(strength: 1, agility: 1, vitality: 1, intelligence: 1, perception: 1), timezone: TimeZone.current.identifier), quests: [], skills: [], practices: [:], events: [], quote: .init(localDate: Date.now.formatted(.iso8601.year().month().day()), quote: .init(id: 1, text: "Small steps, repeated, become a life.", author: "The System"), poolSize: 1, refreshAfter: Calendar.current.date(byAdding: .day, value: 1, to: .now)!.ISO8601Format()), attachmentData: [:])
+        .init(player: .init(id: 1, name: "Player", level: 1, exp: 0, expToNextLevel: 100, expProgress: 0, totalExpEarned: 0, statPoints: 0, stats: .init(strength: 1, agility: 1, vitality: 1, intelligence: 1, perception: 1), timezone: TimeZone.current.identifier), quests: [], skills: [], practices: [:], events: [], quote: .init(localDate: Date.now.formatted(.iso8601.year().month().day()), quote: .init(id: 1, text: "Small steps, repeated, become a life.", author: "The System"), poolSize: 1, refreshAfter: Calendar.current.date(byAdding: .day, value: 1, to: .now)!.ISO8601Format()), attachmentData: [:], penalties: [])
     }
+}
+
+struct LocalPenalty: Codable {
+    let questId: Int
+    let instanceId: Int
+    let reason: String
+    let expLost: Int
+    let createdAt: String
 }
 
 @MainActor final class PersistenceController {
@@ -63,8 +72,13 @@ enum LocalDataError: LocalizedError {
         case ("POST", "/quests"):
             let id = (data.quests.map(\.id).max() ?? 0) + 1
             let target = fields["target_count"] as? Int ?? 1
-            let schedule = (fields["schedule"] as? [String: Any])?["kind"] as? String ?? "daily"
-            let quest = Quest(id: id, title: fields["title"] as? String ?? "Untitled quest", description: fields["description"] as? String, schedule: .init(label: scheduleLabel(schedule)), difficulty: fields["difficulty"] as? String ?? "E", targetCount: target, unit: fields["unit"] as? String, practiceMinutes: fields["practice_minutes"] as? Int ?? 10, statReward: fields["stat_reward"] as? String, statRewardAmount: fields["stat_reward_amount"] as? Int ?? 0, skillId: fields["skill_id"] as? Int, isActive: true, currentInstance: .init(id: id, progress: 0, targetCount: target, status: "active", periodEnd: "Today"), nextDueDate: nil)
+            let scheduleFields = fields["schedule"] as? [String: Any] ?? [:]
+            let schedule = scheduleFields["kind"] as? String ?? "daily"
+            let today = localDay(for: data.player)
+            let spec = QuestSchedule(label: scheduleLabel(schedule), kind: schedule, days: scheduleFields["days"] as? [Int], intervalDays: scheduleFields["interval_days"] as? Int, anchor: isoDay(today), weekStart: scheduleFields["week_start"] as? Int)
+            let period = currentPeriod(for: spec, on: today)
+            let instance = period.map { QuestInstance(id: id, progress: 0, targetCount: target, status: "active", periodEnd: $0.end.map(isoDay), periodStart: isoDay($0.start)) }
+            let quest = Quest(id: id, title: fields["title"] as? String ?? "Untitled quest", description: fields["description"] as? String, schedule: spec, difficulty: fields["difficulty"] as? String ?? "E", targetCount: target, unit: fields["unit"] as? String, practiceMinutes: fields["practice_minutes"] as? Int ?? 10, statReward: fields["stat_reward"] as? String, statRewardAmount: fields["stat_reward_amount"] as? Int ?? 0, skillId: fields["skill_id"] as? Int, isActive: true, currentInstance: instance, nextDueDate: nil)
             data.quests.append(quest); result = quest
         case ("POST", let value) where value.hasSuffix("/progress") || value.hasSuffix("/complete"):
             guard let id = Int(value.split(separator: "/")[1]), let index = data.quests.firstIndex(where: { $0.id == id }) else { throw LocalDataError.missing("Quest") }
@@ -136,7 +150,8 @@ enum LocalDataError: LocalizedError {
             let id = Int(value.split(separator: "/").last ?? "") ?? 0
             guard let bytes = data.attachmentData?[id] else { throw LocalDataError.missing("Practice attachment") }
             result = bytes
-        case ("POST", "/system/daily-reset"): result = DailyReset(resetDate: Date.now.formatted(.iso8601.year().month().day()), failedCount: 0, spawnedCount: 0, totalExpLost: 0)
+        case ("POST", "/system/daily-reset"):
+            result = runLocalDailyReset(&data, on: localDay(for: data.player))
         default: throw LocalDataError.unsupported("\(method) \(path)")
         }
         if method != "GET" { record.payload = try encoder.encode(data); record.modifiedAt = .now; try context.save() }
@@ -144,6 +159,17 @@ enum LocalDataError: LocalizedError {
     }
 
     func request<Response: Decodable>(_ path: String, method: String = "GET") async throws -> Response { try await request(path, method: method, body: Optional<String>.none) }
+#if DEBUG
+    func backdateQuestForResetProof(_ questID: Int) throws {
+        let context = PersistenceController.shared.container.mainContext
+        let record = try load(context)
+        var data = try decoder.decode(LocalSnapshot.self, from: record.payload)
+        guard let index = data.quests.firstIndex(where: { $0.id == questID }), let instance = data.quests[index].currentInstance else { throw LocalDataError.missing("Quest") }
+        let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: localDay(for: data.player))!
+        data.quests[index] = data.quests[index].replacingInstance(.init(id: instance.id, progress: instance.progress, targetCount: instance.targetCount, status: "active", periodEnd: isoDay(yesterday), periodStart: isoDay(yesterday)))
+        record.payload = try encoder.encode(data); record.modifiedAt = .now; try context.save()
+    }
+#endif
     private func load(_ context: ModelContext) throws -> SyncedSystemState {
         var descriptor = FetchDescriptor<SyncedSystemState>(sortBy: [SortDescriptor(\.modifiedAt, order: .reverse)]); descriptor.fetchLimit = 1
         if let found = try context.fetch(descriptor).first { return found }
@@ -154,6 +180,64 @@ enum LocalDataError: LocalizedError {
 
 private let maximumLevel = 999
 private let statPointsPerLevel = 3
+
+private struct LocalPeriod { let start: Date; let end: Date? }
+private let dayFormatter: DateFormatter = { let value = DateFormatter(); value.calendar = Calendar(identifier: .gregorian); value.locale = Locale(identifier: "en_US_POSIX"); value.dateFormat = "yyyy-MM-dd"; return value }()
+private func isoDay(_ date: Date) -> String { dayFormatter.string(from: date) }
+private func parseDay(_ value: String?) -> Date? { value.flatMap(dayFormatter.date) }
+private func localDay(for player: PlayerStatus) -> Date { var calendar = Calendar(identifier: .gregorian); calendar.timeZone = TimeZone(identifier: player.timezone) ?? .current; return calendar.startOfDay(for: .now) }
+
+private func currentPeriod(for schedule: QuestSchedule, on day: Date) -> LocalPeriod? {
+    var calendar = Calendar(identifier: .gregorian); calendar.timeZone = dayFormatter.timeZone ?? .current
+    let legacyKind: String
+    switch schedule.label {
+    case "One time": legacyKind = "once"
+    case "Selected days": legacyKind = "weekdays"
+    case "Every N days": legacyKind = "interval"
+    case "Weekly target": legacyKind = "weekly"
+    default: legacyKind = "daily"
+    }
+    let kind = schedule.kind ?? legacyKind
+    if kind == "once" { return .init(start: parseDay(schedule.anchor) ?? day, end: nil) }
+    if kind == "daily" { return .init(start: day, end: day) }
+    let weekday = (calendar.component(.weekday, from: day) + 5) % 7
+    if kind == "weekdays" { return (schedule.days ?? []).contains(weekday) ? .init(start: day, end: day) : nil }
+    if kind == "weekly" {
+        let startDay = schedule.weekStart ?? 0, delta = (weekday - startDay + 7) % 7
+        let start = calendar.date(byAdding: .day, value: -delta, to: day)!
+        return .init(start: start, end: calendar.date(byAdding: .day, value: 6, to: start))
+    }
+    let anchor = parseDay(schedule.anchor) ?? day, length = max(1, schedule.intervalDays ?? 1)
+    let elapsed = max(0, calendar.dateComponents([.day], from: anchor, to: day).day ?? 0)
+    let start = calendar.date(byAdding: .day, value: (elapsed / length) * length, to: anchor)!
+    return .init(start: start, end: calendar.date(byAdding: .day, value: length - 1, to: start))
+}
+
+private func runLocalDailyReset(_ data: inout LocalSnapshot, on today: Date) -> DailyReset {
+    var failed = 0, spawned = 0, lost = 0
+    if data.penalties == nil { data.penalties = [] }
+    for index in data.quests.indices where data.quests[index].isActive {
+        let quest = data.quests[index]
+        if let instance = quest.currentInstance, instance.status == "active", let end = parseDay(instance.periodEnd), end < today {
+            failed += 1
+            let expLost = min(data.player.exp, quest.practiceMinutes)
+            lost += expLost
+            data.player = data.player.replacingExp(data.player.exp - expLost)
+            data.penalties?.append(.init(questId: quest.id, instanceId: instance.id, reason: "Failed quest: \(quest.title)", expLost: expLost, createdAt: Date.now.ISO8601Format()))
+            data.events.insert(.init(id: nextEventID(data.events), eventType: "penalty_applied", message: "Penalty incurred: Failed quest: \(quest.title) (-\(expLost) EXP)", createdAt: Date.now.ISO8601Format()), at: 0)
+            data.events.insert(.init(id: nextEventID(data.events), eventType: "quest_failed", message: "Quest failed: \(quest.title) (\(instance.progress)/\(instance.targetCount))", createdAt: Date.now.ISO8601Format()), at: 0)
+        }
+        if let period = currentPeriod(for: quest.schedule, on: today), quest.schedule.kind != "once", quest.currentInstance?.periodStart != isoDay(period.start) {
+            let nextID = (data.quests.compactMap(\.currentInstance?.id).max() ?? 0) + 1
+            data.quests[index] = quest.replacingInstance(.init(id: nextID, progress: 0, targetCount: quest.targetCount, status: "active", periodEnd: period.end.map(isoDay), periodStart: isoDay(period.start)))
+            spawned += 1
+        }
+    }
+    if failed > 0 || spawned > 0 {
+        data.events.insert(.init(id: nextEventID(data.events), eventType: "daily_reset", message: "Reset: \(failed) quest\(failed == 1 ? "" : "s") failed, \(spawned) quest\(spawned == 1 ? "" : "s") issued\(lost > 0 ? " (-\(lost) EXP)" : "").", createdAt: Date.now.ISO8601Format()), at: 0)
+    }
+    return .init(resetDate: isoDay(today), failedCount: failed, spawnedCount: spawned, totalExpLost: lost)
+}
 
 private func expThreshold(_ level: Int) -> Int {
     guard level < maximumLevel else { return 0 }
@@ -243,4 +327,16 @@ private func skillDetail(for skill: SkillSummary, in nodes: [SkillNode]) -> Skil
 private func findSkillNode(_ id: Int, _ nodes: [SkillNode]) -> SkillNode? { for node in nodes { if node.id == id { return node }; if let value = findSkillNode(id, node.children) { return value } }; return nil }
 private extension SkillSummary { func node(children: [SkillNode] = []) -> SkillNode { .init(id: id, parentId: parentId, name: name, description: description, iconKey: iconKey, level: level, exp: exp, expToNextLevel: expToNextLevel, expProgress: expProgress, totalExpEarned: totalExpEarned, isActive: isActive, depth: depth, createdAt: createdAt, children: children) } }
 private extension SkillNode { func replacingChildren(_ children: [SkillNode]) -> SkillNode { .init(id: id, parentId: parentId, name: name, description: description, iconKey: iconKey, level: level, exp: exp, expToNextLevel: expToNextLevel, expProgress: expProgress, totalExpEarned: totalExpEarned, isActive: isActive, depth: depth, createdAt: createdAt, children: children) } }
-private extension Quest { func replacingProgress(_ value: Int) -> Quest { .init(id: id, title: title, description: description, schedule: schedule, difficulty: difficulty, targetCount: targetCount, unit: unit, practiceMinutes: practiceMinutes, statReward: statReward, statRewardAmount: statRewardAmount, skillId: skillId, isActive: isActive, currentInstance: .init(id: currentInstance?.id ?? id, progress: value, targetCount: currentInstance?.targetCount ?? targetCount, status: value >= targetCount ? "completed" : "active", periodEnd: currentInstance?.periodEnd), nextDueDate: nextDueDate) } }
+private extension PlayerStatus {
+    func replacingExp(_ value: Int) -> PlayerStatus {
+        .init(id: id, name: name, level: level, exp: value, expToNextLevel: expToNextLevel, expProgress: expToNextLevel == 0 ? 1 : Double(value) / Double(expToNextLevel), totalExpEarned: totalExpEarned, statPoints: statPoints, stats: stats, timezone: timezone)
+    }
+}
+private extension Quest {
+    func replacingInstance(_ instance: QuestInstance?) -> Quest {
+        .init(id: id, title: title, description: description, schedule: schedule, difficulty: difficulty, targetCount: targetCount, unit: unit, practiceMinutes: practiceMinutes, statReward: statReward, statRewardAmount: statRewardAmount, skillId: skillId, isActive: isActive, currentInstance: instance, nextDueDate: nextDueDate)
+    }
+    func replacingProgress(_ value: Int) -> Quest {
+        replacingInstance(.init(id: currentInstance?.id ?? id, progress: value, targetCount: currentInstance?.targetCount ?? targetCount, status: value >= targetCount ? "completed" : "active", periodEnd: currentInstance?.periodEnd, periodStart: currentInstance?.periodStart))
+    }
+}

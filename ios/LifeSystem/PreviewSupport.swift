@@ -104,6 +104,67 @@ struct ProgressionProofScreen: View {
     }
 }
 
+struct DailyResetProofScreen: View {
+    @State private var checks: [(String, Bool, String)] = []
+    @State private var running = true
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("Recurring settlement") {
+                    ForEach(Array(checks.enumerated()), id: \.offset) { _, check in
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: check.1 ? "checkmark.seal.fill" : "xmark.octagon.fill")
+                                .foregroundStyle(check.1 ? .green : .red)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(check.0).font(.headline)
+                                Text(check.2).font(.caption.monospaced()).foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
+            .overlay { if running { ProgressView("Settling a missed period…") } }
+            .navigationTitle("Reset Proof")
+            .task { await run() }
+        }
+    }
+
+    @MainActor private func run() async {
+        var stage = "load player"
+        do {
+            let store = LocalDataStore.shared
+            let before: PlayerStatus = try await store.request("/players/me")
+            stage = "create funding quest"
+            let awardQuest: Quest = try await store.request("/quests", method: "POST", body: ProofQuestPayload(title: "Fund reset proof", description: nil, schedule: .init(kind: "once"), difficulty: "E", targetCount: 1, unit: "session", practiceMinutes: 40, statReward: nil, statRewardAmount: 0, skillId: nil))
+            stage = "complete funding quest"
+            let _: QuestAction = try await store.request("/quests/\(awardQuest.id)/complete", method: "POST")
+            stage = "create recurring quest"
+            let missed: Quest = try await store.request("/quests", method: "POST", body: ProofQuestPayload(title: "Daily reset proof", description: nil, schedule: .init(kind: "daily"), difficulty: "E", targetCount: 2, unit: "sessions", practiceMinutes: 25, statReward: nil, statRewardAmount: 0, skillId: nil))
+            stage = "backdate recurring quest"
+            try store.backdateQuestForResetProof(missed.id)
+            stage = "first reset"
+            let first: DailyReset = try await store.request("/system/daily-reset", method: "POST")
+            stage = "idempotence reset"
+            let second: DailyReset = try await store.request("/system/daily-reset", method: "POST")
+            stage = "reload durable state"
+            let after: PlayerStatus = try await store.request("/players/me")
+            let today: [Quest] = try await store.request("/quests/today")
+            let events: [SystemEvent] = try await store.request("/system/events")
+            let reopened = today.first(where: { $0.id == missed.id })
+            checks = [
+                ("Missed period failed once", first.failedCount == 1 && second.failedCount == 0, "reset counts \(first.failedCount), then \(second.failedCount)"),
+                ("Penalty applied once", first.totalExpLost == 25 && second.totalExpLost == 0 && after.exp == before.exp + 15, "funded +40 EXP, then lost 25"),
+                ("Fresh period opened", first.spawnedCount == 1 && second.spawnedCount == 0 && reopened?.currentInstance?.progress == 0, "new active instance #\(reopened?.currentInstance?.id ?? 0)"),
+                ("Failure is explained", events.contains(where: { $0.eventType == "quest_failed" && $0.message.contains("Daily reset proof") }) && events.contains(where: { $0.eventType == "penalty_applied" && $0.message.contains("-25 EXP") }), "failure and penalty transmissions saved")
+            ]
+        } catch {
+            checks = [("Reset proof failed", false, "\(stage): \(String(reflecting: error))")]
+        }
+        running = false
+    }
+}
+
 struct LockScreenWidgetSimulationView: View {
     private let quote = "The work you do today becomes your strength tomorrow."
 

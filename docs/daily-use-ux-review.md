@@ -603,3 +603,21 @@ Verification on the iPhone 17 Pro Simulator running iOS 26.5:
 - Evidence: `ios/Screenshots/quest-creation-dynamic-type-large.png` and `ios/Screenshots/quest-creation-dynamic-type-ax5.png`.
 
 This is another verified partial resolution, not closure of the original P0. The remaining core screens and a complete VoiceOver create → complete → practice journey still need Large/XXXL/AX5 verification before the release blocker can be marked resolved.
+
+## Product-development history — 1 September 2026 (offline recurring settlement)
+
+### Durable recurring reset and disclosed penalties
+
+Carried-forward finding: **P0 — Make progression behavior truthful and reliable**, specifically “Daily reset currently returns a placeholder and does not implement recurrence, failure, or penalties.” Acceptance scenario addressed: **5. A failed recurring quest applies exactly the disclosed penalty once, records why, and opens the next period correctly.**
+
+The offline-first iOS store now persists recurrence configuration and period identity, settles lapsed active periods, deducts no more than the player's current-level EXP, preserves lifetime earned EXP and level, records durable failure/penalty/reset transmissions and penalty metadata, and opens the period currently due. Repeating reset against that period is idempotent. Recurring quest creation now states the maximum current-EXP loss in both visible review copy and its combined VoiceOver summary.
+
+Verification on the iPhone 17 Pro Simulator running iOS 26.5:
+
+- The Debug app build completed with `** BUILD SUCCEEDED **`.
+- The deterministic `-dailyResetProof` journey funded current EXP, backdated one daily quest, ran reset twice, and verified one failure, one 25 EXP loss, one fresh zero-progress period, and saved failure/penalty transmissions.
+- After force-quit and relaunch, the persisted snapshot decoded successfully and the complete proof passed again; this also verified that repeated settlement remained one-time within each generated period.
+- Quest creation was inspected at Large and AX5 after adding the penalty disclosure. The form remained vertically scrollable with retained controls; no new horizontal clipping was observed.
+- Evidence: `ios/Screenshots/daily-reset-proof.png`, `ios/Screenshots/daily-reset-proof-relaunch.png`, `ios/Screenshots/quest-penalty-disclosure-large.png`, and `ios/Screenshots/quest-penalty-disclosure-ax5.png`.
+
+This resolves the offline authored-quest portion of the reset placeholder. The P0 remains open for foreground-trigger coverage, a player-facing penalty-history surface, physical-device/multi-device CloudKit conflict testing, and side-quest parity in the offline store.

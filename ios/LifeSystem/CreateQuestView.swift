@@ -206,7 +206,11 @@ struct CreateQuestView: View {
                         .textInputAutocapitalization(.never)
                     Stepper("Practice: \(minutes) minutes", value: $minutes, in: 1...10_000)
                 } header: { Text("Target and reward") }
-                  footer: { Text("Completion awards \(minutes) EXP. One practice minute equals one EXP.") }
+                  footer: {
+                      Text(kind == .once
+                           ? "Completion awards \(minutes) EXP. One practice minute equals one EXP."
+                           : "Completion awards \(minutes) EXP. If this period is missed, you lose up to \(minutes) current EXP.")
+                  }
 
                 Section {
                     Toggle("Grant a stat reward", isOn: $givesStatReward)
@@ -292,6 +296,9 @@ struct CreateQuestView: View {
             Label(kind.label, systemImage: "calendar")
             Label("\(target) \(unit.isEmpty ? "unit\(target == 1 ? "" : "s")" : unit)", systemImage: "scope")
             Label("\(minutes) EXP on completion", systemImage: "sparkles")
+            if kind != .once {
+                Label("If missed: lose up to \(minutes) current EXP", systemImage: "exclamationmark.shield")
+            }
             if linkedSkill != nil {
                 Label("Trains \(selectedSkillName)", systemImage: "point.3.connected.trianglepath.dotted")
             }
@@ -325,6 +332,7 @@ struct CreateQuestView: View {
         ]
         if linkedSkill != nil { parts.append("Trains \(selectedSkillName)") }
         if givesStatReward { parts.append("Rewards \(rewardAmount) \(rewardStat.rawValue)") }
+        if kind != .once { parts.append("If missed, lose up to \(minutes) current experience") }
         return parts.joined(separator: ", ")
     }
 

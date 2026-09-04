@@ -31,7 +31,7 @@ Exact event values are defined by `EventType` in `app/models/enums.py`. Payloads
 ## Clients and gaps
 
 - Web: `web/src/features/system/system-view.tsx` combines System/event and request visibility.
-- iOS: `SystemLogView.swift` shows type, message, and raw created timestamp; no type-specific rendering, pagination, or payload presentation yet.
+- iOS: `SystemLogView.swift` shows type, message, and raw created timestamp. Offline recurring settlement now writes `quest_failed`, `penalty_applied`, and summary `daily_reset` transmissions in the same persisted snapshot as the quest and player mutations; no type-specific rendering, pagination, or payload presentation exists yet.
 
 ## Verification
 

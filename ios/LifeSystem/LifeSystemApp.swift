@@ -46,6 +46,8 @@ struct RootView: View {
                 DashboardPreviewScreen()
             } else if ProcessInfo.processInfo.arguments.contains("-progressionProof") {
                 ProgressionProofScreen()
+            } else if ProcessInfo.processInfo.arguments.contains("-dailyResetProof") {
+                DailyResetProofScreen()
             } else if ProcessInfo.processInfo.arguments.contains("-questRewardPreview") {
                 QuestRewardPreviewScreen()
             } else {

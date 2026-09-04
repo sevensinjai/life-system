@@ -48,6 +48,8 @@ The SwiftUI client under `ios/LifeSystem` is a native, offline-first game-like c
 - Child creation remains nested, and nested skill updates preserve existing descendants.
 - `-progressionProof` runs the real local request path and displays durable checks for player rewards, level/stat changes, Today filtering, nesting, roll-up, and journal media; relaunching it proves the prior state was persisted.
 - Quest completion presents a player-facing reward receipt, including the player EXP award and level-up direction.
+- Recurring quests persist their schedule and current period identity. Dashboard reset fails a lapsed active period once, deducts no more than current-level EXP, writes penalty/failure/reset history, and opens the period due today. Repeating reset in the same period is a no-op. Quest creation previews the maximum missed-period loss in plain language.
+- `-dailyResetProof` verifies this settlement path, including idempotence and snapshot decoding after force-quit/relaunch.
 
 ## Lock Screen quick actions
 

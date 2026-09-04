@@ -34,6 +34,7 @@ Contracts: `app/schemas/player.py`. Routes: `app/routers/players.py`.
 - iOS opens on `DashboardView.swift`, which composes player progression, today's quote, active quest progress, attributes, and the latest System event. Tapping the level card drills into the Souls-style `StatusView.swift`, which loads `/players/me` and `/skills` together and presents identity, level/EXP, the five canonical stats, and skill mastery.
 - “See all 100 attributes” opens ten groups of human ability/personality facets. These values are deterministic client-side projections from the five canonical stats; they are not independent persisted stats and cannot be allocated or trained separately.
 - Stat allocation and profile editing are not yet implemented on iOS. Daily reset runs when the dashboard enters rather than from Player State.
+- Offline iOS authored-quest penalties remove only EXP in the current level, never de-level the player, and do not reduce lifetime earned EXP; the durable penalty record stores the amount actually lost.
 
 ## Verification
 

@@ -34,9 +34,10 @@ Core pure operations are `validate`, `current_period`, `next_occurrence`, and `d
 ## Clients and gaps
 
 - Web runs reset from the status screen and exposes log/penalty information in the System screen.
-- iOS calls reset once when the dashboard enters and has no penalty-history screen. It does not yet observe every subsequent foreground transition.
+- iOS calls reset once when the dashboard enters. Its offline-first store now settles every lapsed active recurring instance, deducts at most the player's current-level EXP, records durable failure/penalty/reset events and penalty metadata, and opens the period currently due. Stored period-start identity makes repeated reset idempotent. Quest creation discloses the maximum loss alongside the reward. The app has no penalty-history screen and does not yet observe every subsequent foreground transition.
 
 ## Verification
 
 - Primary tests: `tests/test_scheduling.py`, `tests/test_schedule_lifecycle.py`, `tests/test_daily.py`, and side-quest lifecycle tests.
 - Freeze/override time in tests; cover timezone boundaries, repeat reset, missing days, weekly/interval anchors, and combined quest/side-quest settlement.
+- The iOS `-dailyResetProof` Debug journey backdates a daily period, funds current EXP, runs reset twice, and checks failure, one-time loss, respawn, and events. Relaunching the proof also exercises decoding and mutation of the persisted snapshot.
